@@ -291,4 +291,9 @@ The small example repo lives in `examples/small-python-service`.
 
 ## License
 
-Apache-2.0. See `Cargo.toml` for the workspace license metadata.
+PrefixGraph is licensed under the Apache License, Version 2.0. See `LICENSE`.
+
+Copyright and attribution notices are in `NOTICE`.
+
+The proof trail for the published work is in `PROVENANCE.md` and the verified
+20-repo eval artifacts under `eval/results/github_20_20260612T151403Z`.
