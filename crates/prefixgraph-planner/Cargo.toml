@@ -1,0 +1,17 @@
+[package]
+name = "prefixgraph-planner"
+description = "Token-budget context planning, stable ordering, and cache-aware rendering for PrefixGraph"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+prefixgraph-core = { path = "../prefixgraph-core" }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hex.workspace = true
+ulid.workspace = true
