@@ -252,13 +252,13 @@ scripts/eval_github_repos.py
 Verify a result:
 
 ```sh
-scripts/verify_github_eval.py eval/results/packmind_20_20260612T163042Z
+scripts/verify_github_eval.py eval/results/packmind_20_20260612T174255Z
 ```
 
 The checked-in clean run is documented in:
 
 ```text
-eval/results/packmind_20_20260612T163042Z/report.md
-eval/results/packmind_20_20260612T163042Z/provenance.md
+eval/results/packmind_20_20260612T174255Z/report.md
+eval/results/packmind_20_20260612T174255Z/provenance.md
 ```
 
