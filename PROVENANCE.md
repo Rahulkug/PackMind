@@ -1,14 +1,14 @@
 # PackMind Provenance
 
-This file records the public proof trail for the first published PackMind
-release.
+This file records the public proof trail for published PackMind releases.
 
 ## Public Repository
 
 - Repository: `https://github.com/Rahulkug/PackMind`
-- Release commit: see the `v0.2.1` tag in this repository.
-- Release tag: `v0.2.1`
-- Release URL: `https://github.com/Rahulkug/PackMind/releases/tag/v0.2.1`
+- Current release tag: `v0.3.0`
+- Current release URL: `https://github.com/Rahulkug/PackMind/releases/tag/v0.3.0`
+- Previous releases: `v0.2.1`, `v0.2.0` (tags in this repository; the v0.2.1
+  proof trail below is preserved unchanged)
 - License: Apache-2.0, see `LICENSE`
 - Notice: see `NOTICE`
 
@@ -30,10 +30,23 @@ their own upstream licenses.
 
 ## Reproducible Evaluation Proof
 
-The clean public evaluation run is:
+Each release has a clean, verifier-checked 20-repo evaluation run:
+
+| Release | Result directory |
+| --- | --- |
+| `v0.3.0` | `eval/results/packmind_20_20260612T174255Z` |
+| `v0.2.1` | `eval/results/packmind_20_20260612T163042Z` |
+
+Both runs pass the same verifier with identical check counts (164 checks,
+0 failures, 180 packs, 20 repo proofs). The v0.3.0 run was produced by the
+v0.3.0 binary (task modes, config file, score-threshold support, and the
+signature-resolution planner fix included); median saved tokens at the
+2,000-token budget moved from 92.67% to 92.87%.
+
+The v0.3.0 result directory is:
 
 ```text
-eval/results/packmind_20_20260612T163042Z
+eval/results/packmind_20_20260612T174255Z
 ```
 
 It contains:
@@ -47,10 +60,10 @@ It contains:
 - `provenance.json` - machine-readable verification report
 - `failures.jsonl` - empty for the clean run
 
-Verification command:
+Verification command (works for either run directory):
 
 ```sh
-scripts/verify_github_eval.py eval/results/packmind_20_20260612T163042Z
+scripts/verify_github_eval.py eval/results/packmind_20_20260612T174255Z
 ```
 
 Verified result:
