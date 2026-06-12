@@ -7,6 +7,15 @@ token-budgeted context packs for coding questions. The goal is simple: stop
 making agents rediscover the same repo structure by dumping files into every
 prompt.
 
+![PrefixGraph context pack screenshot](docs/assets/pack-screenshot.svg)
+
+Start with the full walkthrough in [docs/USAGE.md](docs/USAGE.md), or run the
+local playground:
+
+```sh
+scripts/playground.sh
+```
+
 ## The Problem
 
 AI coding agents are often good at editing code once they have the right
@@ -93,6 +102,9 @@ target/release/prefixgraph --repo /path/to/repo pack \
   --budget 12000 \
   --render plain
 ```
+
+For screenshots, MCP setup, playground commands, and common workflows, see
+[docs/USAGE.md](docs/USAGE.md).
 
 ## MCP Usage
 
