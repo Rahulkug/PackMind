@@ -9,7 +9,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/Rahulkug/PackMind"
@@ -29,6 +29,7 @@ tree-sitter-java = "0.23"
 tree-sitter-typescript = "0.23"
 ignore = "0.4"
 clap = { version = "4", features = ["derive"] }
+toml = "0.8"
 ulid = "1"
 tiktoken-rs = "0.6"
 tempfile = "3"

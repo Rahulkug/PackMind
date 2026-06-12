@@ -20,6 +20,11 @@ cd examples/small-python-service
 packmind init
 packmind index .
 packmind pack "Refactor PaymentValidator to use FxRateService" --budget 4000
+packmind pack "fix currency rounding" --mode bugfix
+packmind pack "review payment request handling" --mode security
 packmind callers process_payment
 packmind tests PaymentValidator
+packmind cache-report
+packmind bench token-savings
+packmind bench cache-stability
 ```

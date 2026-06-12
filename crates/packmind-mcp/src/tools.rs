@@ -56,7 +56,13 @@ pub fn definitions() -> Value {
                 "properties": {
                     "query": {"type": "string", "description": "The task or question, e.g. 'Refactor PaymentValidator to use FxRateService'"},
                     "token_budget": {"type": "integer", "default": 12000, "minimum": 500},
-                    "include_content": {"type": "boolean", "default": true}
+                    "include_content": {"type": "boolean", "default": true},
+                    "mode": {
+                        "type": "string",
+                        "enum": ["default", "bugfix", "refactor", "test", "security", "architecture", "pr"],
+                        "default": "default",
+                        "description": "Task mode biasing retrieval: bugfix/pr anchor on changed files and tests; refactor follows the call graph; security boosts auth/validation code; architecture favors docs and structure."
+                    }
                 },
                 "required": ["query"]
             }
@@ -118,17 +124,18 @@ pub fn dispatch(store: &Store, name: &str, args: &Value) -> Result<Value> {
         }
         "build_context_pack" => {
             let query = s("query").ok_or_else(|| anyhow!("missing 'query'"))?;
-            let stale = packmind_indexer::dirty_files(store)?.len() as i64;
+            let config = packmind_core::config::Config::load(&store.root)?;
             let pack = build_pack(
                 store,
                 &PackRequest {
                     query,
-                    token_budget: i("token_budget", 12_000),
+                    token_budget: i("token_budget", config.plan.budget),
                     include_content: args
                         .get("include_content")
                         .and_then(|v| v.as_bool())
                         .unwrap_or(true),
-                    stale_files: stale,
+                    dirty_paths: packmind_indexer::dirty_files(store)?,
+                    mode: s("mode").unwrap_or_default(),
                     surface: "mcp".to_string(),
                 },
             )?;
@@ -164,7 +171,11 @@ pub fn dispatch(store: &Store, name: &str, args: &Value) -> Result<Value> {
 }
 
 pub fn search_code(store: &Store, query: &str, limit: usize) -> Result<Value> {
-    let cands = packmind_planner::gather(store, query, &[], limit.max(10))?;
+    let profile = packmind_planner::Profile::new(
+        packmind_planner::Mode::Default,
+        &packmind_core::config::Config::load(&store.root)?,
+    );
+    let cands = packmind_planner::gather(store, query, &[], &[], limit.max(10), &profile)?;
     let hits: Vec<Value> = cands
         .iter()
         .take(limit)

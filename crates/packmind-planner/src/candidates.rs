@@ -4,6 +4,7 @@
 //! The score is decomposable by design — every component maps onto a pack
 //! item's `why` field. No learned model in the core path.
 
+use crate::profile::Profile;
 use anyhow::Result;
 use packmind_core::model::{EdgeKind, Node, NodeId, NodeKind};
 use packmind_core::pack::Why;
@@ -77,10 +78,24 @@ pub fn gather(
     store: &Store,
     query: &str,
     extra_anchor_paths: &[String],
+    dirty_anchor_paths: &[String],
     max_candidates: usize,
+    profile: &Profile,
 ) -> Result<Vec<Candidate>> {
     let mut cands: HashMap<NodeId, Candidate> = HashMap::new();
     let (path_tokens, symbol_tokens) = query_tokens(query);
+
+    // --- 0. Anchors: working-tree changes (bugfix/pr modes) ---
+    for p in dirty_anchor_paths {
+        for node in store.nodes_by_path(p, &[NodeKind::AstChunk])? {
+            let why = Why {
+                reason: "anchor".into(),
+                score: None,
+                detail: format!("changed in working tree: {p}"),
+            };
+            insert(&mut cands, node, 1.0, 0, why);
+        }
+    }
 
     // --- 1. Anchors: explicit paths ---
     let mut anchor_paths: Vec<String> = extra_anchor_paths.to_vec();
@@ -202,7 +217,8 @@ pub fn gather(
         frontier = next;
     }
 
-    // --- 4. Final scoring ---
+    // --- 4. Final scoring (profile-driven; components stay decomposable) ---
+    let w = &profile.weights;
     let mut out: Vec<Candidate> = cands.into_values().collect();
     for c in &mut out {
         let text_score = if c.why.reason == "search_hit" {
@@ -212,19 +228,22 @@ pub fn gather(
         } else {
             0.0
         };
-        let edge_prior = match c.why.reason.as_str() {
-            "anchor" => 1.0,
-            "tested_by" | "called_by" | "calls" => 0.8,
-            "inherits" | "imports" | "imported_by" => 0.6,
-            "doc_mention" => 0.4,
-            _ => 0.5,
-        };
-        c.score = 0.40 * text_score
-            + 0.25 * hop_decay(c.hops)
-            + 0.15 * edge_prior
-            + 0.10 * c.node.centrality
-            + 0.10 * if c.node.role == "test" { 0.5 } else { 0.7 };
+        c.score = w.text * text_score
+            + w.hop * hop_decay(c.hops)
+            + w.edge_prior * profile.edge_prior(&c.why.reason)
+            + w.centrality * c.node.centrality
+            + w.role * profile.role_score(&c.node.role);
+        if let Some(kw) = profile.keyword_hit(&c.node.path, c.node.symbol.as_deref()) {
+            c.score += profile.keyword_bonus;
+            c.why
+                .detail
+                .push_str(&format!(" · {} mode: matches '{kw}'", profile.mode.name()));
+        }
         c.why.score = Some((c.score * 100.0).round() / 100.0);
+    }
+    // Threshold prune (anchors exempt: named code must always be present).
+    if profile.threshold > 0.0 {
+        out.retain(|c| c.why.reason == "anchor" || c.score >= profile.threshold);
     }
     out.sort_by(|a, b| {
         b.score

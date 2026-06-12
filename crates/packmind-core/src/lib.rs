@@ -1,6 +1,7 @@
 //! PackMind core: data model, content addressing (PM-NORM-1), token counting,
 //! the SQLite store, and the context pack contract.
 
+pub mod config;
 pub mod hash;
 pub mod model;
 pub mod norm;

@@ -11,19 +11,48 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 fn envelope(item: &PackItem) -> String {
-    let content = item.content.as_deref().unwrap_or("");
+    envelope_bytes(
+        &item.node,
+        &item.path,
+        &item.item_type,
+        item.lines,
+        item.symbol.as_deref(),
+        item.content.as_deref().unwrap_or(""),
+    )
+}
+
+/// The PM-ENV-1 byte contract, shared by pack rendering and cache reporting.
+pub fn envelope_bytes(
+    id_hex: &str,
+    path: &str,
+    kind: &str,
+    lines: [i64; 2],
+    symbol: Option<&str>,
+    content: &str,
+) -> String {
     format!(
         "<pm:ctx id=\"{}\" path=\"{}\" kind=\"{}\" lines=\"{}-{}\"{}>\n{}</pm:ctx>\n",
-        &item.node[..12.min(item.node.len())],
-        item.path,
-        item.item_type,
-        item.lines[0],
-        item.lines[1],
-        item.symbol
-            .as_deref()
+        &id_hex[..12.min(id_hex.len())],
+        path,
+        kind,
+        lines[0],
+        lines[1],
+        symbol
             .map(|s| format!(" symbol=\"{s}\""))
             .unwrap_or_default(),
         content
+    )
+}
+
+/// Envelope for a raw node — used to measure the hot-set prefix bytes.
+pub fn envelope_for_node(n: &packmind_core::model::Node) -> String {
+    envelope_bytes(
+        &packmind_core::model::id_hex(&n.id),
+        &n.path,
+        n.kind.label(),
+        [n.line_start, n.line_end],
+        n.symbol.as_deref(),
+        &n.content,
     )
 }
 

@@ -2,7 +2,9 @@
 //! substitution and containment, then cache-stable ordering.
 
 use crate::candidates::Candidate;
+use crate::profile::{Mode, Profile};
 use anyhow::Result;
+use packmind_core::config::Config;
 use packmind_core::model::{id_hex, Node, NodeKind};
 use packmind_core::pack::{ContextPack, Freshness, Layout, PackItem, Totals, Why, PACK_VERSION};
 use packmind_core::{tokens, Store};
@@ -12,7 +14,11 @@ pub struct PackRequest {
     pub query: String,
     pub token_budget: i64,
     pub include_content: bool,
-    pub stale_files: i64,
+    /// Files changed on disk since the last index. Reported as freshness;
+    /// modes with `anchor_dirty` (bugfix, pr) also anchor on them.
+    pub dirty_paths: Vec<String>,
+    /// Task mode (see profile::MODE_NAMES); "" means default.
+    pub mode: String,
     pub surface: String, // "cli" | "mcp" | "proxy"
 }
 
@@ -108,7 +114,15 @@ fn stable_order(chosen: &mut Vec<Chosen>, hot_ids: &[packmind_core::model::NodeI
 }
 
 pub fn build_pack(store: &Store, req: &PackRequest) -> Result<ContextPack> {
-    let cands = crate::candidates::gather(store, &req.query, &[], 600)?;
+    let config = Config::load(&store.root)?;
+    let profile = Profile::new(Mode::parse(&req.mode)?, &config);
+    let dirty_anchors: &[String] = if profile.anchor_dirty {
+        &req.dirty_paths
+    } else {
+        &[]
+    };
+    let cands =
+        crate::candidates::gather(store, &req.query, &[], dirty_anchors, 600, &profile)?;
     let mut chosen = select(store, &cands, req.token_budget);
     let (hot_version, hot_ids) = store.hot_set()?;
     stable_order(&mut chosen, &hot_ids);
@@ -174,6 +188,7 @@ pub fn build_pack(store: &Store, req: &PackRequest) -> Result<ContextPack> {
         pack_version: PACK_VERSION.to_string(),
         pack_id: ulid::Ulid::new().to_string(),
         query: req.query.clone(),
+        mode: profile.mode.name().to_string(),
         repo: store
             .root
             .file_name()
@@ -181,12 +196,12 @@ pub fn build_pack(store: &Store, req: &PackRequest) -> Result<ContextPack> {
             .unwrap_or_else(|| "repo".to_string()),
         head: store.meta_get("head_commit"),
         freshness: Freshness {
-            state: if req.stale_files == 0 {
+            state: if req.dirty_paths.is_empty() {
                 "fresh".into()
             } else {
                 "stale".into()
             },
-            stale_files: req.stale_files,
+            stale_files: req.dirty_paths.len() as i64,
             indexed_at: store.meta_get("last_indexed_at").unwrap_or_default(),
         },
         token_budget: req.token_budget,

@@ -682,6 +682,17 @@ impl Store {
             .flatten()
     }
 
+    /// Most recent recorded packs, newest first: (pack_json, surface).
+    pub fn recent_packs(&self, limit: usize) -> Result<Vec<(String, String)>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT pack_json, surface FROM packs ORDER BY ts DESC, id DESC LIMIT ?1")?;
+        let rows = stmt.query_map([limit as i64], |r| {
+            Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+        })?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
     pub fn bump_stats(&self, ids: &[NodeId]) -> Result<()> {
         for id in ids {
             self.conn.execute(

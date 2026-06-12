@@ -1,11 +1,14 @@
 //! PackMind CLI — the Level-1 adoption surface.
 
+mod bench;
+
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
+use packmind_core::config::Config;
 use packmind_core::Store;
 use packmind_indexer::{dirty_files, index_repo, IndexOptions};
 use packmind_planner::plan::{build_pack, PackRequest};
-use packmind_planner::render;
+use packmind_planner::{render, report};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -53,8 +56,12 @@ enum Command {
     /// Build a context pack for a task or question
     Pack {
         query: String,
-        #[arg(long, default_value_t = 12000)]
-        budget: i64,
+        /// Token budget (default: config plan.budget, else 12000)
+        #[arg(long)]
+        budget: Option<i64>,
+        /// Task mode: default | bugfix | refactor | test | security | architecture | pr
+        #[arg(long)]
+        mode: Option<String>,
         #[arg(long)]
         json: bool,
         /// Render mode: plain | anthropic | openai
@@ -67,8 +74,10 @@ enum Command {
     /// Like `pack`, with a human explanation of every inclusion
     AskContext {
         query: String,
-        #[arg(long, default_value_t = 12000)]
-        budget: i64,
+        #[arg(long)]
+        budget: Option<i64>,
+        #[arg(long)]
+        mode: Option<String>,
     },
     /// Who calls this symbol
     Callers { symbol: String },
@@ -84,6 +93,24 @@ enum Command {
     Why { pack_id: String },
     /// Serve PackMind tools over MCP (stdio)
     Mcp,
+    /// Prompt-cache health: stable prefix size, reuse, pack-order stability
+    CacheReport {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Reproducible benchmarks: token-savings | cache-stability
+    Bench {
+        /// Which benchmark to run
+        which: String,
+        #[arg(long)]
+        budget: Option<i64>,
+        /// File with one query per line (token-savings; default: generated
+        /// from the repo's most central symbols)
+        #[arg(long)]
+        queries: Option<PathBuf>,
+        #[arg(long)]
+        json: bool,
+    },
     /// Drop stale nodes older than --days and vacuum
     Gc {
         #[arg(long, default_value_t = 30)]
@@ -133,6 +160,12 @@ fn run(cli: Cli) -> Result<()> {
             let current = std::fs::read_to_string(&gi).unwrap_or_default();
             if !current.lines().any(|l| l.trim() == entry) {
                 std::fs::write(&gi, format!("{current}{entry}\n"))?;
+            }
+            let cfg_path = root
+                .join(packmind_core::STATE_DIR)
+                .join(packmind_core::config::CONFIG_FILE);
+            if !cfg_path.exists() {
+                std::fs::write(&cfg_path, packmind_core::config::TEMPLATE)?;
             }
             println!(
                 "initialized {}/{}",
@@ -235,19 +268,21 @@ fn run(cli: Cli) -> Result<()> {
         Command::Pack {
             query,
             budget,
+            mode,
             json,
             render: render_mode,
             no_content,
         } => {
             let store = Store::open_existing(&root)?;
-            let stale = dirty_files(&store)?.len() as i64;
+            let config = Config::load(&root)?;
             let pack = build_pack(
                 &store,
                 &PackRequest {
                     query,
-                    token_budget: budget,
+                    token_budget: budget.unwrap_or(config.plan.budget),
                     include_content: !no_content || render_mode.is_some(),
-                    stale_files: stale,
+                    dirty_paths: dirty_files(&store)?,
+                    mode: mode.unwrap_or_default(),
                     surface: "cli".into(),
                 },
             )?;
@@ -274,16 +309,21 @@ fn run(cli: Cli) -> Result<()> {
                 None => print_pack_summary(&pack),
             }
         }
-        Command::AskContext { query, budget } => {
+        Command::AskContext {
+            query,
+            budget,
+            mode,
+        } => {
             let store = Store::open_existing(&root)?;
-            let stale = dirty_files(&store)?.len() as i64;
+            let config = Config::load(&root)?;
             let pack = build_pack(
                 &store,
                 &PackRequest {
                     query: query.clone(),
-                    token_budget: budget,
+                    token_budget: budget.unwrap_or(config.plan.budget),
                     include_content: false,
-                    stale_files: stale,
+                    dirty_paths: dirty_files(&store)?,
+                    mode: mode.unwrap_or_default(),
                     surface: "cli".into(),
                 },
             )?;
@@ -317,6 +357,29 @@ fn run(cli: Cli) -> Result<()> {
         Command::Mcp => {
             packmind_mcp::serve_stdio(&root)?;
         }
+        Command::CacheReport { json } => {
+            let store = Store::open_existing(&root)?;
+            let r = report::cache_report(&store)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&r)?);
+            } else {
+                print_cache_report(&r);
+            }
+        }
+        Command::Bench {
+            which,
+            budget,
+            queries,
+            json,
+        } => match which.as_str() {
+            "token-savings" => bench::token_savings(&root, budget, queries.as_deref(), json)?,
+            "cache-stability" => bench::cache_stability(&root, budget, json)?,
+            other => {
+                return Err(anyhow!(
+                    "unknown benchmark '{other}' (token-savings|cache-stability)"
+                ))
+            }
+        },
         Command::Gc { days } => {
             let store = Store::open_existing(&root)?;
             let (nodes, edges) = store.gc(days)?;
@@ -324,6 +387,30 @@ fn run(cli: Cli) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn print_cache_report(r: &serde_json::Value) {
+    println!("PackMind Cache Report");
+    println!("---------------------");
+    println!(
+        "hot set:            v{} · {} members ({} live)",
+        r["hot_set"]["version"], r["hot_set"]["members"], r["hot_set"]["live_members"]
+    );
+    println!(
+        "stable prefix:      {} bytes · ~{} reusable tokens",
+        r["hot_set"]["stable_prefix_bytes"], r["hot_set"]["estimated_reusable_tokens"]
+    );
+    if let Some(p) = r["last_index"]["chunk_preservation_pct"].as_f64() {
+        println!("last index:         {p:.1}% chunks preserved");
+    }
+    println!(
+        "packs analyzed:     {} ({} on current hot set, {} prefix-order consistent)",
+        r["packs"]["analyzed"], r["packs"]["on_current_hot_set"], r["packs"]["prefix_order_consistent"]
+    );
+    if let Some(m) = r["packs"]["median_saved_pct"].as_f64() {
+        println!("median token save:  {m:.1}%");
+    }
+    println!("cache stability:    {}", r["cache_stability_score"]);
 }
 
 fn print_pack_summary(pack: &packmind_core::pack::ContextPack) {
@@ -335,8 +422,9 @@ fn print_pack_summary(pack: &packmind_core::pack::ContextPack) {
         pack.totals.saved_pct
     );
     println!(
-        "pack {} · freshness: {}{} · hot set v{}",
+        "pack {} · mode: {} · freshness: {}{} · hot set v{}",
         pack.pack_id,
+        pack.mode,
         pack.freshness.state,
         if pack.freshness.stale_files > 0 {
             format!(" ({} files)", pack.freshness.stale_files)
@@ -345,6 +433,56 @@ fn print_pack_summary(pack: &packmind_core::pack::ContextPack) {
         },
         pack.layout.hot_set_version
     );
+
+    // Coverage: items/tokens/files per inclusion reason.
+    let mut reasons: Vec<&str> = pack.items.iter().map(|i| i.why.reason.as_str()).collect();
+    reasons.sort();
+    reasons.dedup();
+    println!("\nCoverage:");
+    for reason in reasons {
+        let items: Vec<_> = pack.items.iter().filter(|i| i.why.reason == reason).collect();
+        let tokens: i64 = items.iter().map(|i| i.tokens).sum();
+        let mut files: Vec<&str> = items.iter().map(|i| i.path.as_str()).collect();
+        files.sort();
+        files.dedup();
+        println!(
+            "  {:<12} {:>3} items  {:>6} tok  {:>2} files",
+            reason,
+            items.len(),
+            tokens,
+            files.len()
+        );
+    }
+
+    // Risk: the things a consumer should know before trusting the pack.
+    println!("\nRisk:");
+    if pack.freshness.stale_files > 0 {
+        println!(
+            "  stale index: yes ({} files changed) — run: packmind index .",
+            pack.freshness.stale_files
+        );
+    } else {
+        println!("  stale index: no");
+    }
+    let test_items = pack
+        .items
+        .iter()
+        .filter(|i| i.item_type == "test" || i.why.reason == "tested_by")
+        .count();
+    if test_items == 0 {
+        println!("  test context: none found — consider --mode test");
+    } else {
+        println!("  test context: {test_items} items");
+    }
+    let headroom = pack.token_budget - pack.totals.selected_tokens;
+    println!(
+        "  budget headroom: {headroom} tok unused of {}",
+        pack.token_budget
+    );
+    if pack.token_estimate {
+        println!("  token counts are estimates (tokenizer unavailable)");
+    }
+
     println!("\nIncluded:");
     for item in &pack.items {
         println!(

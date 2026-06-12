@@ -10,6 +10,8 @@ pub struct ContextPack {
     pub pack_version: String,
     pub pack_id: String,
     pub query: String,
+    /// Task mode the pack was planned under (planner profile names).
+    pub mode: String,
     pub repo: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub head: Option<String>,
