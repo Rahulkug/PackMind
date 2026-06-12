@@ -1,20 +1,20 @@
-PrefixGraph
-Copyright 2026 Rahulkug and PrefixGraph contributors
+PackMind
+Copyright 2026 Rahulkug and PackMind contributors
 
 This product includes software, documentation, scripts, examples, and generated
-evaluation metadata developed for the PrefixGraph project.
+evaluation metadata developed for the PackMind project.
 
 The source code, documentation, scripts, example service, and included
-PrefixGraph-generated evaluation artifacts in this repository are licensed
+PackMind-generated evaluation artifacts in this repository are licensed
 under the Apache License, Version 2.0, unless a file states otherwise.
 
-The evaluation artifacts under eval/results/ contain PrefixGraph-generated
+The evaluation artifacts under eval/results/ contain PackMind-generated
 metrics and provenance metadata. They do not vendor the source code of the
 external GitHub repositories used in the evaluation; those external projects
 remain governed by their own licenses.
 
 The 20-repository evaluation provenance is documented in PROVENANCE.md and in:
 
-  eval/results/github_20_20260612T151403Z/provenance.md
-  eval/results/github_20_20260612T151403Z/provenance.json
+  eval/results/packmind_20_20260612T163042Z/provenance.md
+  eval/results/packmind_20_20260612T163042Z/provenance.json
 

@@ -1,12 +1,12 @@
-# PrefixGraph Usage Guide
+# PackMind Usage Guide
 
 This guide shows the fastest path from a fresh clone to a useful context pack.
 It uses the included `examples/small-python-service` playground so you can try
-PrefixGraph without risking a real project.
+PackMind without risking a real project.
 
 ## What You Get
 
-PrefixGraph turns a repository into an indexed local graph and returns focused
+PackMind turns a repository into an indexed local graph and returns focused
 context for a task:
 
 ![Context pack screenshot](assets/pack-screenshot.svg)
@@ -30,7 +30,7 @@ cargo build --release
 Binary:
 
 ```sh
-target/release/prefixgraph --help
+target/release/packmind --help
 ```
 
 ## Run The Playground
@@ -51,7 +51,7 @@ That script:
 The playground writes local state to:
 
 ```text
-examples/small-python-service/.prefixgraph/
+examples/small-python-service/.packmind/
 ```
 
 That directory is ignored by Git.
@@ -61,9 +61,9 @@ That directory is ignored by Git.
 Use any repository path:
 
 ```sh
-target/release/prefixgraph init /path/to/repo
-target/release/prefixgraph --repo /path/to/repo index --force
-target/release/prefixgraph --repo /path/to/repo status
+target/release/packmind init /path/to/repo
+target/release/packmind --repo /path/to/repo index --force
+target/release/packmind --repo /path/to/repo status
 ```
 
 On the included playground:
@@ -73,7 +73,7 @@ On the included playground:
 Search the graph:
 
 ```sh
-target/release/prefixgraph --repo examples/small-python-service \
+target/release/packmind --repo examples/small-python-service \
   search "PaymentValidator FxRateService"
 ```
 
@@ -82,7 +82,7 @@ target/release/prefixgraph --repo examples/small-python-service \
 Build a context pack:
 
 ```sh
-target/release/prefixgraph --repo examples/small-python-service \
+target/release/packmind --repo examples/small-python-service \
   ask-context "What should I read before changing PaymentValidator?" \
   --budget 900
 ```
@@ -90,7 +90,7 @@ target/release/prefixgraph --repo examples/small-python-service \
 Render exact prompt text:
 
 ```sh
-target/release/prefixgraph --repo examples/small-python-service \
+target/release/packmind --repo examples/small-python-service \
   pack "Explain the payment flow" \
   --budget 900 \
   --render plain
@@ -101,7 +101,7 @@ target/release/prefixgraph --repo examples/small-python-service \
 ### 1. Ask "what should I read?"
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo ask-context \
+target/release/packmind --repo /path/to/repo ask-context \
   "What should I read before changing PaymentValidator?" \
   --budget 12000
 ```
@@ -112,37 +112,37 @@ reason each item was included.
 ### 2. Get JSON for a custom tool
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo pack \
+target/release/packmind --repo /path/to/repo pack \
   "Refactor auth middleware and update tests" \
   --budget 8000 \
   --json
 ```
 
-Use this when you want to feed PrefixGraph output into your own script,
+Use this when you want to feed PackMind output into your own script,
 dashboard, or agent.
 
 ### 3. Render pasteable prompt context
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo pack \
+target/release/packmind --repo /path/to/repo pack \
   "Explain the payment flow" \
   --budget 9000 \
   --render plain
 ```
 
-Paste the rendered `<pg:ctx ...>` blocks above your question in an LLM chat.
+Paste the rendered `<pm:ctx ...>` blocks above your question in an LLM chat.
 
 ### 4. Find related tests
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo tests payments.py
-target/release/prefixgraph --repo /path/to/repo tests PaymentValidator
+target/release/packmind --repo /path/to/repo tests payments.py
+target/release/packmind --repo /path/to/repo tests PaymentValidator
 ```
 
 ### 5. Check impact before changing a symbol
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo impact PaymentValidator --depth 2
+target/release/packmind --repo /path/to/repo impact PaymentValidator --depth 2
 ```
 
 This follows reverse graph edges and shows callers/tests/related code by
@@ -153,7 +153,7 @@ distance.
 Run:
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo mcp
+target/release/packmind --repo /path/to/repo mcp
 ```
 
 Example client config:
@@ -161,8 +161,8 @@ Example client config:
 ```json
 {
   "mcpServers": {
-    "prefixgraph": {
-      "command": "/absolute/path/to/prefixgraph",
+    "packmind": {
+      "command": "/absolute/path/to/packmind",
       "args": ["--repo", "/absolute/path/to/repo", "mcp"]
     }
   }
@@ -183,7 +183,7 @@ Available read-only tools:
 Suggested first prompt for your MCP agent:
 
 ```text
-Use PrefixGraph build_context_pack for this task before reading individual
+Use PackMind build_context_pack for this task before reading individual
 files: explain the payment flow and identify the tests I should update.
 ```
 
@@ -198,7 +198,7 @@ files: explain the payment flow and identify the tests I should update.
 If a pack is too broad, add anchors such as a file path or symbol name:
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo pack \
+target/release/packmind --repo /path/to/repo pack \
   "Change payments.py PaymentValidator to enforce a new limit" \
   --budget 6000
 ```
@@ -226,19 +226,19 @@ Meaning:
 Check freshness:
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo status
+target/release/packmind --repo /path/to/repo status
 ```
 
 Re-index after edits:
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo index
+target/release/packmind --repo /path/to/repo index
 ```
 
 Use `--force` when you want a clean rebuild:
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo index --force
+target/release/packmind --repo /path/to/repo index --force
 ```
 
 ## Reproduce The Public Eval
@@ -252,13 +252,13 @@ scripts/eval_github_repos.py
 Verify a result:
 
 ```sh
-scripts/verify_github_eval.py eval/results/github_20_20260612T151403Z
+scripts/verify_github_eval.py eval/results/packmind_20_20260612T163042Z
 ```
 
 The checked-in clean run is documented in:
 
 ```text
-eval/results/github_20_20260612T151403Z/report.md
-eval/results/github_20_20260612T151403Z/provenance.md
+eval/results/packmind_20_20260612T163042Z/report.md
+eval/results/packmind_20_20260612T163042Z/provenance.md
 ```
 

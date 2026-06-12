@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Run PrefixGraph pack/index measurements against real GitHub repositories.
+"""Run PackMind pack/index measurements against real GitHub repositories.
 
 The harness clones or reuses a fixed 20-repository corpus, indexes each repo
-with the PrefixGraph CLI, then runs pack generation across several budgets and
+with the PackMind CLI, then runs pack generation across several budgets and
 query profiles. Outputs are written as JSONL/CSV plus a compact Markdown report.
 """
 
@@ -240,7 +240,7 @@ def git_metadata(repo_dir: Path) -> dict[str, str]:
 
 
 def read_index_state(repo_dir: Path) -> dict[str, Any]:
-    db_path = repo_dir / ".prefixgraph" / "index.db"
+    db_path = repo_dir / ".packmind" / "index.db"
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     try:
@@ -403,7 +403,7 @@ def write_csv(path: Path, rows: list[dict[str, Any]], preferred: list[str]) -> N
                 keys.append(key)
                 seen.add(key)
     with path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=keys)
+        writer = csv.DictWriter(f, fieldnames=keys, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
@@ -503,7 +503,7 @@ def make_report(
     total_chunks = sum(int(row.get("count_chunks", 0)) for row in index_rows)
 
     lines = [
-        "# PrefixGraph GitHub 20-Repo Eval",
+        "# PackMind GitHub 20-Repo Eval",
         "",
         f"- Started: `{started_at}`",
         f"- Finished: `{finished_at}`",
@@ -621,6 +621,20 @@ def make_report(
             f"- Index CSV: `{run_dir / 'repo_index_metrics.csv'}`",
             f"- Manifest: `{run_dir / 'manifest.json'}`",
             f"- Failures: `{run_dir / 'failures.jsonl'}`",
+            f"- Provenance report: `{run_dir / 'provenance.md'}`",
+            f"- Provenance JSON: `{run_dir / 'provenance.json'}`",
+            "",
+            "## Provenance",
+            "",
+            "After the run completes, verify it with:",
+            "",
+            "```sh",
+            f"scripts/verify_github_eval.py {run_dir}",
+            "```",
+            "",
+            "The verifier checks local git clones, recorded commits, GitHub origins,",
+            "PackMind SQLite index counts, and that every recorded pack id exists in",
+            "the corresponding repo database.",
             "",
         ]
     )
@@ -651,13 +665,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--binary",
         type=Path,
-        default=Path("target/release/prefixgraph"),
-        help="PrefixGraph CLI binary to run.",
+        default=Path("target/release/packmind"),
+        help="PackMind CLI binary to run.",
     )
     parser.add_argument(
         "--workdir",
         type=Path,
-        default=Path("/private/tmp/prefixgraph-github-eval"),
+        default=Path("/private/tmp/packmind-github-eval"),
         help="Directory used for cloned repositories.",
     )
     parser.add_argument(
@@ -693,11 +707,11 @@ def main() -> int:
     args = parse_args()
     binary = args.binary.resolve()
     if not binary.exists():
-        print(f"missing PrefixGraph binary: {binary}", file=sys.stderr)
+        print(f"missing PackMind binary: {binary}", file=sys.stderr)
         return 2
 
     started_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    run_slug = datetime.now(timezone.utc).strftime("github_20_%Y%m%dT%H%M%SZ")
+    run_slug = datetime.now(timezone.utc).strftime("packmind_20_%Y%m%dT%H%M%SZ")
     run_dir = args.results_dir / run_slug
     run_dir.mkdir(parents=True, exist_ok=False)
     args.workdir.mkdir(parents=True, exist_ok=True)
@@ -705,8 +719,8 @@ def main() -> int:
     selected_repos = REPOS[: args.repo_limit] if args.repo_limit else REPOS
     manifest: dict[str, Any] = {
         "started_at": started_at,
-        "prefixgraph_binary": str(binary),
-        "prefixgraph_version": run_cmd(
+        "packmind_binary": str(args.binary),
+        "packmind_version": run_cmd(
             [str(binary), "--version"], timeout=30
         ).stdout.strip(),
         "workdir": str(args.workdir),
@@ -731,7 +745,7 @@ def main() -> int:
                 clone_timeout=args.clone_timeout,
             )
             metadata = git_metadata(repo_dir)
-            state_dir = repo_dir / ".prefixgraph"
+            state_dir = repo_dir / ".packmind"
             if state_dir.exists():
                 shutil.rmtree(state_dir)
             run_cmd([str(binary), "init", str(repo_dir)], timeout=60)

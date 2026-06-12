@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Verify that a PrefixGraph GitHub eval run is backed by real git clones.
+"""Verify that a PackMind GitHub eval run is backed by real git clones.
 
 This checks the run artifacts against the local repository clones used during
 the eval:
 
 - each indexed repo has a .git directory;
 - each local HEAD equals the commit recorded in repo_index_metrics.csv;
-- each .prefixgraph/index.db exists and its counts match the CSV;
+- each .packmind/index.db exists and its counts match the CSV;
 - every pack_id in pack_metrics.jsonl exists in the repo's packs table.
 
 The script writes provenance.json and provenance.md into the run directory.
@@ -128,7 +128,7 @@ def verify(run_dir: Path) -> tuple[dict[str, Any], str]:
         repo = row["repo"]
         local = repo_path(workdir, row["repo_key"])
         git_dir = local / ".git"
-        db_path = local / ".prefixgraph" / "index.db"
+        db_path = local / ".packmind" / "index.db"
         repo_checks: list[Check] = []
 
         add(repo_checks, "git_dir_exists", git_dir.is_dir(), str(git_dir))
@@ -233,7 +233,7 @@ def render_markdown(proof: dict[str, Any], by_repo: dict[str, dict[str, str]]) -
         "- Each row in `repo_index_metrics.csv` maps to a local directory containing `.git`.",
         "- `git rev-parse HEAD` in each clone equals the recorded commit.",
         "- `git remote get-url origin` equals the recorded GitHub URL.",
-        "- Each clone has `.prefixgraph/index.db` from the eval run.",
+        "- Each clone has `.packmind/index.db` from the eval run.",
         "- SQLite node/file/edge counts match `repo_index_metrics.csv`.",
         "- Every `pack_id` in `pack_metrics.jsonl` exists in that repo's `packs` table.",
         "",
@@ -266,9 +266,16 @@ def parse_args() -> argparse.Namespace:
         "run_dir",
         type=Path,
         nargs="?",
-        default=Path("eval/results/github_20_20260612T151403Z"),
+        default=None,
+        help="Result directory to verify. Defaults to the newest eval/results/* directory.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.run_dir is None:
+        candidates = [p for p in Path("eval/results").iterdir() if p.is_dir()]
+        if not candidates:
+            parser.error("no eval result directories found")
+        args.run_dir = max(candidates, key=lambda p: p.stat().st_mtime)
+    return args
 
 
 def main() -> int:

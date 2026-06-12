@@ -1,15 +1,14 @@
-# PrefixGraph Provenance
+# PackMind Provenance
 
-This file records the public proof trail for the first published PrefixGraph
+This file records the public proof trail for the first published PackMind
 release.
 
 ## Public Repository
 
-- Repository: `https://github.com/Rahulkug/PrefixGraph`
-- Main commit published for the initial project import:
-  `a5c0e6c46538ad00b571cb303ba3288a1b0a7bf7`
-- Release tag: `v0.2.0`
-- Release URL: `https://github.com/Rahulkug/PrefixGraph/releases/tag/v0.2.0`
+- Repository: `https://github.com/Rahulkug/PackMind`
+- Release commit: see the `v0.2.1` tag in this repository.
+- Release tag: `v0.2.1`
+- Release URL: `https://github.com/Rahulkug/PackMind/releases/tag/v0.2.1`
 - License: Apache-2.0, see `LICENSE`
 - Notice: see `NOTICE`
 
@@ -23,7 +22,7 @@ states otherwise:
 - documentation, including `README.md`
 - scripts in `scripts/`
 - example code in `examples/small-python-service/`
-- PrefixGraph-generated evaluation reports and metrics in `eval/results/`
+- PackMind-generated evaluation reports and metrics in `eval/results/`
 
 The evaluation artifacts do not include source code copied from the external
 GitHub repositories used in the benchmark. Those repositories remain under
@@ -34,7 +33,7 @@ their own upstream licenses.
 The clean public evaluation run is:
 
 ```text
-eval/results/github_20_20260612T151403Z
+eval/results/packmind_20_20260612T163042Z
 ```
 
 It contains:
@@ -51,7 +50,7 @@ It contains:
 Verification command:
 
 ```sh
-scripts/verify_github_eval.py eval/results/github_20_20260612T151403Z
+scripts/verify_github_eval.py eval/results/packmind_20_20260612T163042Z
 ```
 
 Verified result:
@@ -68,13 +67,12 @@ repo_proofs: 20
 
 The verifier checks that each indexed repository maps to a local Git clone,
 that each local `HEAD` matches the commit recorded in the CSV, that each clone's
-origin matches the recorded GitHub URL, that each repository has a PrefixGraph
+origin matches the recorded GitHub URL, that each repository has a PackMind
 SQLite index database, that SQLite counts match the metrics CSV, and that each
 recorded pack id exists in the corresponding database.
 
 ## Scope Of The Proof
 
-This proof establishes that PrefixGraph was run against real GitHub repositories
+This proof establishes that PackMind was run against real GitHub repositories
 and generated the included context-pack metrics. It does not claim an
 end-to-end LLM answer-quality benchmark.
-

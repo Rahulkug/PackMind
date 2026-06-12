@@ -1,16 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="920" height="300" viewBox="0 0 920 300" role="img" aria-labelledby="title desc">
-  <title id="title">PrefixGraph status command screenshot</title>
-  <desc id="desc">Terminal-style screenshot showing prefixgraph status output for the small Python service playground.</desc>
+  <title id="title">PackMind status command screenshot</title>
+  <desc id="desc">Terminal-style screenshot showing packmind status output for the small Python service playground.</desc>
   <rect width="920" height="300" rx="12" fill="#0b1020"/>
   <rect x="0" y="0" width="920" height="42" rx="12" fill="#111827"/>
   <circle cx="24" cy="21" r="6" fill="#ef4444"/>
   <circle cx="44" cy="21" r="6" fill="#f59e0b"/>
   <circle cx="64" cy="21" r="6" fill="#22c55e"/>
-  <text x="86" y="27" fill="#9ca3af" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">PrefixGraph playground</text>
-  <text x="24" y="72" fill="#7dd3fc" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15">$ target/release/prefixgraph --repo examples/small-python-service status</text>
+  <text x="86" y="27" fill="#9ca3af" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">PackMind playground</text>
+  <text x="24" y="72" fill="#7dd3fc" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15">$ target/release/packmind --repo examples/small-python-service status</text>
   <text x="24" y="110" fill="#e5e7eb" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15">repo: examples/small-python-service - head: &lt;git commit&gt;</text>
-  <text x="24" y="142" fill="#e5e7eb" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15">files: 6 indexed, 0 skipped - chunks: 15 - signatures: 15 - docs: 4 - edges: 36</text>
-  <text x="24" y="174" fill="#e5e7eb" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15">last index: 0 chunks invalidated - 15 preserved - cache stability: 100.0%</text>
+  <text x="24" y="142" fill="#e5e7eb" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15">files: 6 indexed, 0 skipped - chunks: 15 - signatures: 15 - docs: 4 - edges: 31</text>
+  <text x="24" y="174" fill="#e5e7eb" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15">last index: 0 chunks invalidated - 0 preserved - cache stability: 100.0%</text>
   <text x="24" y="206" fill="#86efac" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15">freshness: fresh</text>
   <rect x="24" y="236" width="196" height="34" rx="6" fill="#16341f"/>
   <text x="38" y="258" fill="#86efac" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">local index ready</text>

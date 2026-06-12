@@ -548,6 +548,80 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
+name = "packmind-cli"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "clap",
+ "packmind-core",
+ "packmind-indexer",
+ "packmind-mcp",
+ "packmind-planner",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "packmind-core"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "hex",
+ "once_cell",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tiktoken-rs",
+ "ulid",
+]
+
+[[package]]
+name = "packmind-indexer"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "hex",
+ "ignore",
+ "once_cell",
+ "packmind-core",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tree-sitter",
+ "tree-sitter-java",
+ "tree-sitter-python",
+ "tree-sitter-typescript",
+]
+
+[[package]]
+name = "packmind-mcp"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "packmind-core",
+ "packmind-indexer",
+ "packmind-planner",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "packmind-planner"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "hex",
+ "packmind-core",
+ "serde",
+ "serde_json",
+ "sha2",
+ "ulid",
+]
+
+[[package]]
 name = "parking_lot"
 version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -589,80 +663,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
  "zerocopy",
-]
-
-[[package]]
-name = "prefixgraph-cli"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "clap",
- "prefixgraph-core",
- "prefixgraph-indexer",
- "prefixgraph-mcp",
- "prefixgraph-planner",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "prefixgraph-core"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "hex",
- "once_cell",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "tiktoken-rs",
- "ulid",
-]
-
-[[package]]
-name = "prefixgraph-indexer"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "hex",
- "ignore",
- "once_cell",
- "prefixgraph-core",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "tree-sitter",
- "tree-sitter-java",
- "tree-sitter-python",
- "tree-sitter-typescript",
-]
-
-[[package]]
-name = "prefixgraph-mcp"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "prefixgraph-core",
- "prefixgraph-indexer",
- "prefixgraph-planner",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "prefixgraph-planner"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "hex",
- "prefixgraph-core",
- "serde",
- "serde_json",
- "sha2",
- "ulid",
 ]
 
 [[package]]

@@ -6,6 +6,8 @@ target/
 .claude/
 plan.md
 
+.packmind/
+**/.packmind/
 .prefixgraph/
 **/.prefixgraph/
 
@@ -14,5 +16,5 @@ __pycache__/
 *.py[cod]
 
 eval/results/*
-!eval/results/github_20_20260612T151403Z/
-!eval/results/github_20_20260612T151403Z/*
+!eval/results/packmind_20_*/
+!eval/results/packmind_20_*/*

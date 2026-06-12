@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="920" height="380" viewBox="0 0 920 380" role="img" aria-labelledby="title desc">
-  <title id="title">PrefixGraph search command screenshot</title>
+  <title id="title">PackMind search command screenshot</title>
   <desc id="desc">Terminal-style screenshot showing ranked search hits for PaymentValidator and FxRateService.</desc>
   <rect width="920" height="380" rx="12" fill="#0b1020"/>
   <rect x="0" y="0" width="920" height="42" rx="12" fill="#111827"/>
   <circle cx="24" cy="21" r="6" fill="#ef4444"/>
   <circle cx="44" cy="21" r="6" fill="#f59e0b"/>
   <circle cx="64" cy="21" r="6" fill="#22c55e"/>
-  <text x="86" y="27" fill="#9ca3af" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">PrefixGraph search</text>
-  <text x="24" y="72" fill="#7dd3fc" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15">$ prefixgraph search "PaymentValidator FxRateService"</text>
+  <text x="86" y="27" fill="#9ca3af" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">PackMind search</text>
+  <text x="24" y="72" fill="#7dd3fc" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15">$ packmind search "PaymentValidator FxRateService"</text>
   <text x="24" y="110" fill="#e5e7eb" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15">0.97  payments.py::PaymentValidator  [ast_chunk:13-40]  (anchor)</text>
   <text x="24" y="142" fill="#e5e7eb" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15">0.96  fx.py::FxRateService       [ast_chunk:6-30]   (anchor)</text>
   <text x="24" y="174" fill="#e5e7eb" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15">0.82  tests/test_payments.py::validator  [ast_chunk:14-16]  (search_hit)</text>

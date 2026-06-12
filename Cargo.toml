@@ -1,19 +1,19 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/prefixgraph-core",
-    "crates/prefixgraph-indexer",
-    "crates/prefixgraph-planner",
-    "crates/prefixgraph-mcp",
-    "crates/prefixgraph-cli",
+    "crates/packmind-core",
+    "crates/packmind-indexer",
+    "crates/packmind-planner",
+    "crates/packmind-mcp",
+    "crates/packmind-cli",
 ]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "Apache-2.0"
-repository = "https://github.com/prefixgraph/prefixgraph"
-authors = ["PrefixGraph contributors"]
+repository = "https://github.com/Rahulkug/PackMind"
+authors = ["PackMind contributors"]
 
 [workspace.dependencies]
 anyhow = "1"

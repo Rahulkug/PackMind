@@ -1,13 +1,13 @@
-# PrefixGraph
+# PackMind
 
-PrefixGraph is a local-first context engine for AI coding agents.
+PackMind is a local-first context engine for AI coding agents.
 
 It indexes a repository into an AST-aware graph, then builds small, explained,
 token-budgeted context packs for coding questions. The goal is simple: stop
 making agents rediscover the same repo structure by dumping files into every
 prompt.
 
-![PrefixGraph context pack screenshot](docs/assets/pack-screenshot.svg)
+![PackMind context pack screenshot](docs/assets/pack-screenshot.svg)
 
 Start with the full walkthrough in [docs/USAGE.md](docs/USAGE.md), or run the
 local playground:
@@ -27,18 +27,18 @@ context. The hard part is getting that context:
 - prompt caches only help when repeated context is ordered stably;
 - most repo-context tools do not explain why a file or symbol was included.
 
-PrefixGraph treats repository context as persistent local infrastructure. It
+PackMind treats repository context as persistent local infrastructure. It
 builds a graph once, updates it incrementally, and returns compact packs with a
 reason for every included item.
 
-## What PrefixGraph Does
+## What PackMind Does
 
-Current `0.2.0` implementation:
+Current `0.2.1` implementation:
 
 - indexes Python, TypeScript/JavaScript, Java, Markdown, and text files;
 - extracts AST chunks, signatures, docs, imports, calls, inheritance, and test
   relations where supported;
-- stores everything locally in `.prefixgraph/index.db` using SQLite + FTS5;
+- stores everything locally in `.packmind/index.db` using SQLite + FTS5;
 - builds context packs with token budgets and per-item explanations;
 - substitutes signatures when full chunks do not fit;
 - orders selected items deterministically for prompt-cache stability;
@@ -69,26 +69,26 @@ cargo build --release
 Initialize and index a repo:
 
 ```sh
-target/release/prefixgraph init /path/to/repo
-target/release/prefixgraph --repo /path/to/repo index --force
+target/release/packmind init /path/to/repo
+target/release/packmind --repo /path/to/repo index --force
 ```
 
 Check index state:
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo status
+target/release/packmind --repo /path/to/repo status
 ```
 
 Search code:
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo search "payment validation"
+target/release/packmind --repo /path/to/repo search "payment validation"
 ```
 
 Build a context pack:
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo pack \
+target/release/packmind --repo /path/to/repo pack \
   "Explain the main architecture and important data flow" \
   --budget 6000 \
   --json
@@ -97,7 +97,7 @@ target/release/prefixgraph --repo /path/to/repo pack \
 Render for a prompt:
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo pack \
+target/release/packmind --repo /path/to/repo pack \
   "Refactor PaymentValidator to use FxRateService" \
   --budget 12000 \
   --render plain
@@ -111,7 +111,7 @@ For screenshots, MCP setup, playground commands, and common workflows, see
 Run the MCP server over stdio:
 
 ```sh
-target/release/prefixgraph --repo /path/to/repo mcp
+target/release/packmind --repo /path/to/repo mcp
 ```
 
 Example MCP client config shape:
@@ -119,8 +119,8 @@ Example MCP client config shape:
 ```json
 {
   "mcpServers": {
-    "prefixgraph": {
-      "command": "/absolute/path/to/prefixgraph",
+    "packmind": {
+      "command": "/absolute/path/to/packmind",
       "args": ["--repo", "/absolute/path/to/repo", "mcp"]
     }
   }
@@ -140,7 +140,7 @@ The MCP tools are read-only:
 
 ## Context Pack Contract
 
-A context pack is the main output of PrefixGraph. It contains:
+A context pack is the main output of PackMind. It contains:
 
 - the original query;
 - repo and freshness metadata;
@@ -159,12 +159,12 @@ The repository includes a reproducible 20-repo GitHub evaluation.
 
 Clean run:
 
-- Report: `eval/results/github_20_20260612T151403Z/report.md`
-- Raw pack rows: `eval/results/github_20_20260612T151403Z/pack_metrics.jsonl`
-- Pack CSV: `eval/results/github_20_20260612T151403Z/pack_metrics.csv`
-- Index CSV: `eval/results/github_20_20260612T151403Z/repo_index_metrics.csv`
-- Provenance: `eval/results/github_20_20260612T151403Z/provenance.md`
-- Machine-readable provenance: `eval/results/github_20_20260612T151403Z/provenance.json`
+- Report: `eval/results/packmind_20_20260612T163042Z/report.md`
+- Raw pack rows: `eval/results/packmind_20_20260612T163042Z/pack_metrics.jsonl`
+- Pack CSV: `eval/results/packmind_20_20260612T163042Z/pack_metrics.csv`
+- Index CSV: `eval/results/packmind_20_20260612T163042Z/repo_index_metrics.csv`
+- Provenance: `eval/results/packmind_20_20260612T163042Z/provenance.md`
+- Machine-readable provenance: `eval/results/packmind_20_20260612T163042Z/provenance.json`
 
 That run indexed 20 real public GitHub repositories and generated 180 context
 packs: 20 repos x 3 query profiles x 3 token budgets.
@@ -178,22 +178,22 @@ Summary from the run:
 | Failures | 0 |
 | Indexed files | 3,867 |
 | AST chunks | 5,426 |
-| Total index wall time | 19.4s |
+| Total index wall time | 21.48s |
 
 Median pack savings by budget:
 
 | Token budget | Runs | Median selected tokens | Median raw tokens | Median saved |
 | ---: | ---: | ---: | ---: | ---: |
-| 2,000 | 60 | 1,996 | 28,186.50 | 92.91% |
+| 2,000 | 60 | 1,995.50 | 27,291 | 92.67% |
 | 6,000 | 60 | 5,991.50 | 34,040.50 | 82.38% |
-| 12,000 | 60 | 11,980.50 | 37,821 | 68.40% |
+| 12,000 | 60 | 11,980.50 | 37,794.50 | 68.64% |
 
 ### Provenance Check
 
 The eval is not just a hand-written report. It has a verifier:
 
 ```sh
-scripts/verify_github_eval.py eval/results/github_20_20260612T151403Z
+scripts/verify_github_eval.py eval/results/packmind_20_20260612T163042Z
 ```
 
 Current verifier result:
@@ -214,7 +214,7 @@ The verifier checks that:
 - every local `git rev-parse HEAD` equals the commit in
   `repo_index_metrics.csv`;
 - every local `origin` equals the recorded GitHub URL;
-- every repo has a `.prefixgraph/index.db`;
+- every repo has a `.packmind/index.db`;
 - SQLite file/chunk/doc/edge counts match the CSV metrics;
 - every `pack_id` in `pack_metrics.jsonl` exists in that repo's `packs` table.
 
@@ -238,7 +238,7 @@ scripts/eval_github_repos.py
 This clones or reuses the corpus under:
 
 ```text
-/private/tmp/prefixgraph-github-eval/repos
+/private/tmp/packmind-github-eval/repos
 ```
 
 It writes a timestamped result directory under:
@@ -263,7 +263,7 @@ scripts/eval_github_repos.py --repo-limit 1
 
 1. The indexer walks the repo, respecting gitignore-style exclusions.
 2. Tree-sitter extracts top-level declarations for supported languages.
-3. PrefixGraph stores file nodes, AST chunks, signatures, docs, and edges in
+3. PackMind stores file nodes, AST chunks, signatures, docs, and edges in
    SQLite.
 4. Search combines explicit query anchors, FTS lexical hits, and a bounded graph
    walk.
@@ -283,8 +283,8 @@ Useful commands:
 
 ```sh
 cargo build --release
-target/release/prefixgraph --help
-target/release/prefixgraph --repo examples/small-python-service status
+target/release/packmind --help
+target/release/packmind --repo examples/small-python-service status
 ```
 
 The small example repo lives in `examples/small-python-service`.
@@ -303,9 +303,9 @@ The small example repo lives in `examples/small-python-service`.
 
 ## License
 
-PrefixGraph is licensed under the Apache License, Version 2.0. See `LICENSE`.
+PackMind is licensed under the Apache License, Version 2.0. See `LICENSE`.
 
 Copyright and attribution notices are in `NOTICE`.
 
 The proof trail for the published work is in `PROVENANCE.md` and the verified
-20-repo eval artifacts under `eval/results/github_20_20260612T151403Z`.
+20-repo eval artifacts under `eval/results/packmind_20_20260612T163042Z`.

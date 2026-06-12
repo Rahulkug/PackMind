@@ -2,16 +2,16 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BIN="$ROOT/target/release/prefixgraph"
+BIN="$ROOT/target/release/packmind"
 EXAMPLE="$ROOT/examples/small-python-service"
 
 if [[ ! -x "$BIN" ]]; then
-  echo "Building PrefixGraph release binary..."
+  echo "Building PackMind release binary..."
   cargo build --release --manifest-path "$ROOT/Cargo.toml"
 fi
 
 echo
-echo "== PrefixGraph playground =="
+echo "== PackMind playground =="
 echo "Example repo: $EXAMPLE"
 echo
 
