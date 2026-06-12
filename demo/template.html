@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PackMind — interactive demo</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1c2330; --line: #2d333b;
+    --text: #e6edf3; --dim: #8b949e; --accent: #58a6ff; --ok: #3fb950;
+    --warn: #d29922; --bad: #f85149;
+    --c-anchor: #f59e0b; --c-search: #58a6ff; --c-calls: #3fb950;
+    --c-tested: #2ea043; --c-doc: #bc8cff; --c-struct: #f778ba; --c-other: #8b949e;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  header { padding: 18px 24px 10px; border-bottom: 1px solid var(--line); }
+  header h1 { margin: 0; font-size: 20px; }
+  header h1 span { color: var(--accent); }
+  .sub { color: var(--dim); margin-top: 4px; font-size: 13px; }
+  .statchips { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+          padding: 3px 12px; font-size: 12px; color: var(--dim); }
+  .chip b { color: var(--text); font-weight: 600; }
+  nav { display: flex; gap: 4px; padding: 10px 24px 0; border-bottom: 1px solid var(--line); }
+  nav button { background: none; border: none; color: var(--dim); padding: 8px 14px;
+               font-size: 14px; cursor: pointer; border-bottom: 2px solid transparent; }
+  nav button.active { color: var(--text); border-bottom-color: var(--accent); }
+  section { display: none; padding: 18px 24px; }
+  section.active { display: block; }
+
+  /* pipeline strip */
+  .pipeline { display: flex; align-items: stretch; gap: 0; margin: 4px 0 16px; flex-wrap: wrap; }
+  .stage { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+           padding: 8px 14px; min-width: 130px; }
+  .stage .t { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
+  .stage .v { font-size: 15px; font-weight: 600; margin-top: 2px; }
+  .stage .d { font-size: 11px; color: var(--dim); }
+  .arrow { align-self: center; color: var(--dim); padding: 0 8px; font-size: 18px; }
+
+  .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  select { background: var(--panel); color: var(--text); border: 1px solid var(--line);
+           border-radius: 6px; padding: 7px 10px; font-size: 13px; max-width: 560px; }
+  label.toggle { color: var(--dim); font-size: 13px; cursor: pointer; user-select: none; }
+
+  .bars { margin: 10px 0 16px; max-width: 880px; }
+  .barrow { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .barlabel { width: 150px; text-align: right; color: var(--dim); font-size: 12px; flex: none; }
+  .bartrack { flex: 1; background: var(--panel); border: 1px solid var(--line);
+              border-radius: 5px; height: 22px; position: relative; overflow: hidden; }
+  .barfill { height: 100%; display: flex; }
+  .barseg { height: 100%; }
+  .barnum { width: 170px; font-size: 12px; color: var(--dim); flex: none; }
+
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .badge { font-size: 12px; border-radius: 6px; padding: 3px 10px; border: 1px solid var(--line); }
+  .badge.ok { color: var(--ok); border-color: #1f4429; background: #12261a; }
+  .badge.warn { color: var(--warn); border-color: #4a3a12; background: #2a2211; }
+
+  .cols { display: grid; grid-template-columns: minmax(380px, 46%) 1fr; gap: 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+  .panel h3 { margin: 0; padding: 10px 14px; font-size: 13px; color: var(--dim);
+              border-bottom: 1px solid var(--line); font-weight: 600; }
+  #itemList { max-height: 520px; overflow-y: auto; }
+  .item { padding: 9px 14px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .item:hover { background: var(--panel2); }
+  .item.sel { background: var(--panel2); box-shadow: inset 3px 0 0 var(--accent); }
+  .item .top { display: flex; justify-content: space-between; gap: 8px; }
+  .item .name { font-size: 13px; }
+  .item .name b { font-weight: 600; }
+  .item .tok { color: var(--dim); font-size: 12px; flex: none; }
+  .item .meta { margin-top: 3px; font-size: 11px; color: var(--dim); display: flex; gap: 8px; align-items: center; }
+  .rchip { display: inline-block; border-radius: 4px; padding: 0 7px; font-size: 11px;
+           color: #0d1117; font-weight: 600; }
+  #detail { padding: 14px; }
+  #detail .why { background: var(--panel2); border-left: 3px solid var(--accent);
+                 padding: 8px 12px; border-radius: 0 6px 6px 0; margin: 10px 0; font-size: 13px; }
+  #detail pre { background: #0a0e14; border: 1px solid var(--line); border-radius: 6px;
+                padding: 12px; overflow: auto; max-height: 380px; font-size: 12px; line-height: 1.45; }
+  .muted { color: var(--dim); }
+
+  /* graph */
+  .gwrap { display: grid; grid-template-columns: 1fr 290px; gap: 16px; }
+  #gsvg { width: 100%; height: 620px; background: var(--panel); border: 1px solid var(--line);
+          border-radius: 8px; }
+  .gside .panel { margin-bottom: 14px; }
+  .legend { padding: 10px 14px; font-size: 12px; color: var(--dim); }
+  .legend div { margin: 4px 0; display: flex; align-items: center; gap: 8px; }
+  .lswatch { width: 18px; height: 3px; border-radius: 2px; flex: none; }
+  .ldot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  #gdetail { padding: 12px 14px; font-size: 13px; min-height: 90px; }
+  .gnode { cursor: pointer; }
+  .gnode circle { stroke: var(--line); stroke-width: 1; transition: opacity .15s; }
+  .gnode text { fill: var(--dim); font-size: 10px; pointer-events: none; }
+  .gedge { stroke-opacity: .45; transition: stroke-opacity .15s; }
+  svg.synced .gnode:not(.inpack) circle { opacity: .18; }
+  svg.synced .gnode:not(.inpack) text { opacity: .15; }
+  svg.synced .gedge:not(.inpack) { stroke-opacity: .07; }
+  .gnode.inpack circle { stroke: #fff; stroke-width: 1.6; }
+
+  /* bench */
+  .cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+          padding: 14px 18px; min-width: 170px; }
+  .card .t { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
+  .card .v { font-size: 22px; font-weight: 700; margin-top: 4px; }
+  .card .d { font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .benchrow { display: flex; align-items: center; gap: 10px; margin: 5px 0; max-width: 980px; }
+  .benchq { width: 380px; flex: none; font-size: 12px; color: var(--dim); text-align: right;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .benchtrack { flex: 1; background: var(--panel); border: 1px solid var(--line);
+                height: 18px; border-radius: 4px; position: relative; }
+  .benchfill { height: 100%; background: linear-gradient(90deg, #1f6feb, #58a6ff);
+               border-radius: 3px; }
+  .benchpct { width: 120px; font-size: 12px; color: var(--text); flex: none; }
+  .median { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--warn); }
+  .steps { margin-top: 8px; max-width: 980px; }
+  .step { display: flex; align-items: center; gap: 14px; background: var(--panel);
+          border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; margin: 8px 0; }
+  .step .n { width: 26px; height: 26px; border-radius: 50%; background: var(--panel2);
+             display: flex; align-items: center; justify-content: center; font-weight: 700;
+             color: var(--accent); flex: none; }
+  .step .what { flex: 1; }
+  .step .what .d { color: var(--dim); font-size: 12px; }
+  footer { padding: 14px 24px 26px; color: var(--dim); font-size: 12px; border-top: 1px solid var(--line); margin-top: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>PackMind</span> — interactive demo <span class="muted" style="font-size:13px" id="hver"></span></h1>
+  <div class="sub">A context compiler for coding agents: the repo below was indexed into an AST-aware
+    graph, then compiled into token-budgeted, explainable, cache-stable context packs. Everything on
+    this page is real output from one end-to-end run.</div>
+  <div class="statchips" id="repochips"></div>
+</header>
+
+<nav>
+  <button data-tab="explorer" class="active">Pack explorer</button>
+  <button data-tab="graph">Code graph</button>
+  <button data-tab="cache">Cache &amp; benchmarks</button>
+</nav>
+
+<section id="explorer" class="active">
+  <div class="pipeline" id="pipeline"></div>
+  <div class="controls">
+    <label class="muted" for="packSel">Context pack:</label>
+    <select id="packSel"></select>
+  </div>
+  <div class="bars" id="savingsBars"></div>
+  <div class="badges" id="riskBadges"></div>
+  <div class="cols">
+    <div class="panel"><h3 id="itemsTitle">Items</h3><div id="itemList"></div></div>
+    <div class="panel"><h3>Why is this in the pack?</h3><div id="detail">
+      <span class="muted">Select an item on the left. Every pack item carries a mandatory
+      <code>why</code> — explainability is part of the contract, not a log.</span>
+    </div></div>
+  </div>
+</section>
+
+<section id="graph">
+  <div class="controls">
+    <label class="toggle"><input type="checkbox" id="syncChk" checked>
+      highlight items of the selected pack (<span id="syncPackName" class="mono"></span>)</label>
+  </div>
+  <div class="gwrap">
+    <svg id="gsvg" viewBox="0 0 900 620" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="gside">
+      <div class="panel"><h3>Node</h3><div id="gdetail"><span class="muted">Hover or click a node.</span></div></div>
+      <div class="panel"><h3>Legend</h3><div class="legend" id="glegend"></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="cache">
+  <h3 class="muted" style="margin:4px 0 10px">Prompt-cache health (<code>packmind cache-report</code>)</h3>
+  <div class="cards" id="cacheCards"></div>
+  <h3 class="muted" style="margin:18px 0 6px">Token savings vs dumping whole files (<code>packmind bench token-savings</code>)</h3>
+  <div id="benchBars"></div>
+  <h3 class="muted" style="margin:22px 0 6px">Edit replay: does the cacheable prefix survive normal dev flow? (<code>packmind bench cache-stability</code>)</h3>
+  <div class="steps" id="stabSteps"></div>
+</section>
+
+<footer id="foot"></footer>
+
+<script>
+const DATA = __PACKMIND_DATA__;
+
+const REASON_COLOR = {
+  anchor: "var(--c-anchor)", search_hit: "var(--c-search)",
+  calls: "var(--c-calls)", called_by: "var(--c-calls)",
+  tested_by: "var(--c-tested)", doc_mention: "var(--c-doc)",
+  imports: "var(--c-struct)", imported_by: "var(--c-struct)", inherits: "var(--c-struct)",
+};
+const reasonColor = r => REASON_COLOR[r] || "var(--c-other)";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const $ = id => document.getElementById(id);
+
+/* ---------- header ---------- */
+$("hver").textContent = "v" + DATA.version + " · generated " + DATA.generated_at;
+$("repochips").innerHTML = [
+  ["repo", DATA.repo.name], ["files", DATA.repo.files], ["AST chunks", DATA.repo.chunks],
+  ["signatures", DATA.repo.signatures], ["doc chunks", DATA.repo.docs],
+  ["graph edges", DATA.repo.edges], ["hot set", "v" + DATA.repo.hot_set_version],
+].map(([k, v]) => `<span class="chip">${k}: <b>${v}</b></span>`).join("");
+$("foot").textContent = "Self-contained file — no server, no network, no telemetry. " +
+  "Regenerate with: python3 demo/generate.py";
+
+/* ---------- tabs ---------- */
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("active", x === b));
+  document.querySelectorAll("section").forEach(s => s.classList.toggle("active", s.id === b.dataset.tab));
+});
+
+/* ---------- pack explorer ---------- */
+let cur = 0, curItem = -1;
+const sel = $("packSel");
+DATA.packs.forEach((p, i) => {
+  const o = document.createElement("option");
+  o.value = i; o.textContent = p.label;
+  sel.appendChild(o);
+});
+sel.onchange = () => { cur = +sel.value; curItem = -1; renderPack(); };
+
+function renderPack() {
+  const pk = DATA.packs[cur].pack, t = pk.totals;
+  $("syncPackName").textContent = DATA.packs[cur].label;
+
+  $("pipeline").innerHTML = [
+    ["repository", DATA.repo.files + " files", "normalized (PM-NORM-1)"],
+    ["index", DATA.repo.chunks + " chunks · " + DATA.repo.edges + " edges", "incremental, AST-aware"],
+    ["planner", "budget " + pk.token_budget + " tok", "mode: " + pk.mode],
+    ["context pack", pk.items.length + " items · " + t.selected_tokens + " tok",
+     "saved " + t.saved_pct.toFixed(1) + "% vs file dump"],
+  ].map(([a, b, c]) =>
+    `<div class="stage"><div class="t">${a}</div><div class="v">${b}</div><div class="d">${c}</div></div>`
+  ).join('<div class="arrow">→</div>');
+
+  // savings + coverage bars share one scale (raw tokens).
+  const reasons = {};
+  pk.items.forEach(it => {
+    (reasons[it.why.reason] ??= { n: 0, tok: 0 }).n++;
+    reasons[it.why.reason].tok += it.tokens;
+  });
+  const segs = Object.entries(reasons).sort((a, b) => b[1].tok - a[1].tok).map(([r, v]) =>
+    `<div class="barseg" title="${r}: ${v.n} items, ${v.tok} tok" style="width:${100 * v.tok / t.selected_tokens}%;background:${reasonColor(r)}"></div>`
+  ).join("");
+  $("savingsBars").innerHTML = `
+    <div class="barrow"><div class="barlabel">whole files (raw)</div>
+      <div class="bartrack"><div class="barfill"><div class="barseg" style="width:100%;background:#30363d"></div></div></div>
+      <div class="barnum">~${t.estimated_raw_tokens} tok</div></div>
+    <div class="barrow"><div class="barlabel">PackMind pack</div>
+      <div class="bartrack"><div class="barfill" style="width:${100 * t.selected_tokens / t.estimated_raw_tokens}%">${segs}</div></div>
+      <div class="barnum">${t.selected_tokens} tok · −${t.saved_pct.toFixed(1)}%</div></div>`;
+
+  const tests = pk.items.filter(i => i.type === "test" || i.why.reason === "tested_by").length;
+  $("riskBadges").innerHTML = [
+    pk.freshness.state === "fresh"
+      ? `<span class="badge ok">index fresh</span>`
+      : `<span class="badge warn">stale: ${pk.freshness.stale_files} files changed</span>`,
+    tests ? `<span class="badge ok">test context: ${tests} items</span>`
+          : `<span class="badge warn">no test context — try --mode test</span>`,
+    `<span class="badge">headroom: ${pk.token_budget - t.selected_tokens} tok unused</span>`,
+    `<span class="badge">order: hot-set first, then content hash (cache-stable)</span>`,
+  ].join("");
+
+  $("itemsTitle").textContent = `Items (${pk.items.length}) — click for the why`;
+  $("itemList").innerHTML = pk.items.map((it, i) => `
+    <div class="item ${i === curItem ? "sel" : ""}" onclick="showItem(${i})">
+      <div class="top"><div class="name">${esc(it.path)} :: <b>${esc(it.symbol || "—")}</b></div>
+        <div class="tok">${it.tokens} tok</div></div>
+      <div class="meta"><span class="rchip" style="background:${reasonColor(it.why.reason)}">${it.why.reason}</span>
+        <span>${it.type}</span><span>L${it.lines[0]}–${it.lines[1]}</span>
+        ${it.why.score != null ? `<span>score ${it.why.score.toFixed(2)}</span>` : ""}</div>
+    </div>`).join("");
+
+  if (curItem >= 0) showItem(curItem); else if (pk.items.length) showItem(0);
+  syncGraph();
+}
+
+function showItem(i) {
+  curItem = i;
+  const it = DATA.packs[cur].pack.items[i];
+  document.querySelectorAll(".item").forEach((el, j) => el.classList.toggle("sel", j === i));
+  $("detail").innerHTML = `
+    <div><span class="rchip" style="background:${reasonColor(it.why.reason)}">${it.why.reason}</span>
+      &nbsp;<b>${esc(it.path)} :: ${esc(it.symbol || "—")}</b>
+      <span class="muted">· ${it.type} · lines ${it.lines[0]}–${it.lines[1]} · ${it.tokens} tokens
+      · node <code>${it.node.slice(0, 12)}</code></span></div>
+    <div class="why">${esc(it.why.detail)}${it.why.score != null ? ` <span class="muted">(score ${it.why.score})</span>` : ""}</div>
+    ${it.content ? `<pre>${esc(it.content)}</pre>`
+                 : `<span class="muted">content omitted in this pack (ids + explains only)</span>`}`;
+}
+
+/* ---------- code graph ---------- */
+const EDGE_COLOR = { calls: "#3fb950", imports: "#f778ba", inherits: "#d29922",
+                     implements: "#d29922", tested_by: "#2ea043", doc_mention: "#bc8cff" };
+const FILE_PALETTE = ["#58a6ff", "#f59e0b", "#3fb950", "#bc8cff", "#f778ba", "#39c5cf", "#d29922", "#8b949e"];
+const files = [...new Set(DATA.nodes.map(n => n.path))].sort();
+const fileColor = p => FILE_PALETTE[files.indexOf(p) % FILE_PALETTE.length];
+
+// deterministic mini force layout (n is small; O(n²) per step is fine)
+const W = 900, H = 620;
+const nodes = DATA.nodes.map((n, i) => ({
+  ...n,
+  x: W / 2 + 240 * Math.cos(i * 2.39996), // golden-angle seeding: deterministic
+  y: H / 2 + 220 * Math.sin(i * 2.39996),
+  r: Math.max(6, Math.min(17, 3 + Math.sqrt(n.tokens))),
+}));
+const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
+const edges = DATA.edges.filter(e => byId[e.s] && byId[e.t]);
+for (let step = 0; step < 350; step++) {
+  for (const a of nodes) { a.fx = (W / 2 - a.x) * 0.012; a.fy = (H / 2 - a.y) * 0.012; }
+  for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+    const a = nodes[i], b = nodes[j];
+    let dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy + 0.01, d = Math.sqrt(d2);
+    const same = a.path === b.path ? 0.55 : 1.0;     // same-file nodes may sit closer
+    const f = Math.min(8, 2600 * same / d2);
+    dx /= d; dy /= d;
+    a.fx += dx * f; a.fy += dy * f; b.fx -= dx * f; b.fy -= dy * f;
+  }
+  for (const e of edges) {
+    const a = byId[e.s], b = byId[e.t];
+    let dx = b.x - a.x, dy = b.y - a.y;
+    const d = Math.sqrt(dx * dx + dy * dy) + 0.01, want = 95;
+    const f = (d - want) * 0.012; dx /= d; dy /= d;
+    a.fx += dx * f * d * 0.02 + dx * f; a.fy += dy * f * d * 0.02 + dy * f;
+    b.fx -= dx * f; b.fy -= dy * f;
+  }
+  const cool = 1 - step / 380;
+  for (const a of nodes) {
+    a.x = Math.max(30, Math.min(W - 30, a.x + a.fx * 8 * cool));
+    a.y = Math.max(24, Math.min(H - 24, a.y + a.fy * 8 * cool));
+  }
+}
+
+const svg = $("gsvg");
+svg.innerHTML =
+  edges.map(e => {
+    const a = byId[e.s], b = byId[e.t];
+    return `<line class="gedge" data-s="${e.s}" data-t="${e.t}"
+      x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"
+      stroke="${EDGE_COLOR[e.kind] || "#444"}" stroke-width="${e.kind === "imports" ? 1 : 1.5}"
+      ${e.kind === "imports" || e.kind === "doc_mention" ? 'stroke-dasharray="4 3"' : ""}><title>${e.kind}</title></line>`;
+  }).join("") +
+  nodes.map(n => `
+    <g class="gnode" data-id="${n.id}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})">
+      <circle r="${n.r}" fill="${fileColor(n.path)}"
+        ${n.kind === 4 ? 'fill-opacity="0.45"' : n.kind === 1 ? 'fill-opacity="0.25"' : ""}></circle>
+      <text y="${n.r + 11}" text-anchor="middle">${esc((n.symbol || n.path.split("/").pop() || "").slice(0, 22))}</text>
+    </g>`).join("");
+
+$("glegend").innerHTML =
+  files.map(p => `<div><span class="ldot" style="background:${fileColor(p)}"></span>${esc(p)}</div>`).join("") +
+  `<hr style="border-color:var(--line);border-style:solid none none">` +
+  Object.entries(EDGE_COLOR).map(([k, c]) =>
+    `<div><span class="lswatch" style="background:${c}"></span>${k}</div>`).join("") +
+  `<div style="margin-top:6px">dot size ∝ tokens · faded = doc/file node<br>white ring = in selected pack</div>`;
+
+function nodeInfo(n) {
+  const inPack = DATA.packs[cur].pack.items.find(i => i.node === n.id);
+  $("gdetail").innerHTML = `
+    <b>${esc(n.path)}</b>${n.symbol ? " :: <b>" + esc(n.symbol) + "</b>" : ""}<br>
+    <span class="muted">${{1:"file",2:"AST chunk",4:"doc chunk"}[n.kind] || n.kind}
+    ${n.role ? "· role: " + n.role : ""} · ${n.tokens} tok · centrality ${n.centrality.toFixed(2)}
+    · L${n.lines[0]}–${n.lines[1]}</span><br>` +
+    (inPack
+      ? `<span class="rchip" style="background:${reasonColor(inPack.why.reason)}">${inPack.why.reason}</span>
+         <span style="font-size:12px"> ${esc(inPack.why.detail)}</span>`
+      : `<span class="muted" style="font-size:12px">not in the selected pack</span>`);
+}
+svg.addEventListener("mouseover", e => {
+  const g = e.target.closest(".gnode");
+  if (g) nodeInfo(byId[g.dataset.id]);
+});
+
+function syncGraph() {
+  const on = $("syncChk").checked;
+  svg.classList.toggle("synced", on);
+  const set = new Set(DATA.packs[cur].pack.items.map(i => i.node));
+  svg.querySelectorAll(".gnode").forEach(g =>
+    g.classList.toggle("inpack", set.has(g.dataset.id)));
+  svg.querySelectorAll(".gedge").forEach(l =>
+    l.classList.toggle("inpack", set.has(l.dataset.s) && set.has(l.dataset.t)));
+}
+$("syncChk").onchange = syncGraph;
+
+/* ---------- cache & bench ---------- */
+const cr = DATA.cache_report, bs = DATA.bench_savings, st = DATA.bench_stability;
+$("cacheCards").innerHTML = [
+  ["cache stability", cr.cache_stability_score, "recorded packs sharing the prefix, in order"],
+  ["stable prefix", cr.hot_set.stable_prefix_bytes + " B", "~" + cr.hot_set.estimated_reusable_tokens + " reusable tokens"],
+  ["hot set", "v" + cr.hot_set.version, cr.hot_set.live_members + " members (rendered first, every pack)"],
+  ["last index", (cr.last_index.chunk_preservation_pct ?? 100) + "%", "chunks preserved on the latest change"],
+  ["median savings", bs.median_saved_pct.toFixed(1) + "%", bs.packs + " benchmark packs @ " + bs.budget + " tok budget"],
+].map(([t, v, d]) => `<div class="card"><div class="t">${t}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join("");
+
+const maxPct = Math.max(...bs.results.map(r => r.saved_pct), 1);
+$("benchBars").innerHTML = bs.results.map(r => `
+  <div class="benchrow"><div class="benchq" title="${esc(r.query)}">${esc(r.query)}</div>
+    <div class="benchtrack"><div class="benchfill" style="width:${100 * r.saved_pct / maxPct}%"></div>
+      <div class="median" style="left:${100 * bs.median_saved_pct / maxPct}%" title="median ${bs.median_saved_pct.toFixed(1)}%"></div></div>
+    <div class="benchpct">−${r.saved_pct.toFixed(1)}% (${r.selected_tokens}/${r.raw_tokens})</div></div>`).join("");
+
+$("stabSteps").innerHTML = st.steps.map((s, i) => `
+  <div class="step"><div class="n">${i + 1}</div>
+    <div class="what"><b>${esc(s.step)}</b>
+      <div class="d">${s.chunks_preserved} chunks preserved · ${s.chunks_staled} invalidated · ${s.chunks_new} new</div></div>
+    <span class="badge ${s.hot_prefix_stable ? "ok" : "warn"}">${s.hot_prefix_stable ? "prefix byte-identical" : "prefix changed"}</span>
+    <span class="badge">${s.preservation_pct.toFixed(1)}% preserved</span>
+  </div>`).join("") +
+  `<div class="muted" style="margin-top:6px">Replayed on a temporary copy — the working tree is never touched.
+   A byte-identical prefix is what makes provider/vLLM prompt caches hit across edits.</div>`;
+
+renderPack();
+</script>
+</body>
+</html>
