@@ -549,7 +549,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "packmind-cli"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -563,7 +563,7 @@ dependencies = [
 
 [[package]]
 name = "packmind-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "hex",
@@ -580,7 +580,7 @@ dependencies = [
 
 [[package]]
 name = "packmind-indexer"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "hex",
@@ -599,7 +599,7 @@ dependencies = [
 
 [[package]]
 name = "packmind-mcp"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "packmind-core",
@@ -611,7 +611,7 @@ dependencies = [
 
 [[package]]
 name = "packmind-planner"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "hex",

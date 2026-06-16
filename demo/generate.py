@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""End-to-end PackMind run -> self-contained interactive HTML demo.
+"""Maintainer tool: regenerate the committed demo/packmind-demo.html.
 
-Runs the real binary against a repo (default: the bundled example service),
-collects pack/report/bench JSON plus the code graph from the index, and
-injects it all into template.html. The output opens offline in any browser.
+End users do NOT need this — `packmind demo` builds the same self-contained
+HTML natively (template embedded in the binary) for any repo. This script
+exists so the repo maintainer can refresh the checked-in artifact using a
+richer, example-specific query matrix and Python's sqlite for the graph dump.
 
 Usage:
     python3 demo/generate.py [--repo PATH] [--bin PATH] [--out PATH]

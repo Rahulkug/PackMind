@@ -705,6 +705,41 @@ impl Store {
         Ok(())
     }
 
+    /// All valid nodes of the given kinds (graph export, demo rendering).
+    pub fn valid_nodes(&self, kinds: &[NodeKind]) -> Result<Vec<Node>> {
+        let ks: Vec<String> = kinds.iter().map(|k| k.as_i64().to_string()).collect();
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT id,hash,kind,path,symbol,lang,role,byte_start,byte_end,
+                    line_start,line_end,tokens,content,valid,centrality
+             FROM nodes WHERE valid=1 AND kind IN ({}) ORDER BY path, line_start",
+            ks.join(",")
+        ))?;
+        let rows = stmt.query_map([], row_to_node)?;
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    /// Every edge in the graph: (src, kind, dst).
+    pub fn all_edges(&self) -> Result<Vec<(NodeId, EdgeKind, NodeId)>> {
+        let mut stmt = self.conn.prepare("SELECT src, kind, dst FROM edges")?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, Vec<u8>>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, Vec<u8>>(2)?,
+            ))
+        })?;
+        Ok(rows
+            .filter_map(|r| r.ok())
+            .filter_map(|(s, k, d)| {
+                Some((
+                    NodeId::try_from(s).ok()?,
+                    EdgeKind::from_i64(k)?,
+                    NodeId::try_from(d).ok()?,
+                ))
+            })
+            .collect())
+    }
+
     /// Top valid AST chunks by centrality (hot-set construction, impact ranking).
     pub fn top_chunks(&self, limit: usize) -> Result<Vec<Node>> {
         let mut stmt = self.conn.prepare(

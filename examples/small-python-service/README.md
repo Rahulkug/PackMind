@@ -19,12 +19,15 @@ currencies, and a USD-converted limit computed through `FxRateService`.
 cd examples/small-python-service
 packmind init
 packmind index .
+packmind doctor
 packmind pack "Refactor PaymentValidator to use FxRateService" --budget 4000
 packmind pack "fix currency rounding" --mode bugfix
-packmind pack "review payment request handling" --mode security
+packmind pack "review payment request handling" --mode security --copy
+packmind pr-context
 packmind callers process_payment
 packmind tests PaymentValidator
 packmind cache-report
 packmind bench token-savings
 packmind bench cache-stability
+packmind demo --open       # one-command interactive HTML
 ```

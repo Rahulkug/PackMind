@@ -11,12 +11,12 @@ use packmind_planner::render::envelope_for_node;
 use serde_json::json;
 use std::path::Path;
 
-pub fn token_savings(
+/// Data-producing core, shared by the CLI printer and `packmind demo`.
+pub fn token_savings_report(
     root: &Path,
     budget: Option<i64>,
     queries_file: Option<&Path>,
-    json_out: bool,
-) -> Result<()> {
+) -> Result<serde_json::Value> {
     let store = Store::open_existing(root)?;
     let budget = budget.unwrap_or(Config::load(root)?.plan.budget);
     let queries: Vec<String> = match queries_file {
@@ -74,18 +74,31 @@ pub fn token_savings(
     let median = saved[saved.len() / 2];
     let mean = saved.iter().sum::<f64>() / saved.len() as f64;
 
-    let summary = json!({
+    Ok(json!({
         "benchmark": "token-savings",
         "budget": budget,
         "packs": rows.len(),
         "median_saved_pct": median,
         "mean_saved_pct": (mean * 100.0).round() / 100.0,
         "results": rows,
-    });
+    }))
+}
+
+pub fn token_savings(
+    root: &Path,
+    budget: Option<i64>,
+    queries_file: Option<&Path>,
+    json_out: bool,
+) -> Result<()> {
+    let summary = token_savings_report(root, budget, queries_file)?;
     if json_out {
         println!("{}", serde_json::to_string_pretty(&summary)?);
     } else {
-        println!("token-savings · budget {budget} · {} packs", rows.len());
+        let rows = summary["results"].as_array().cloned().unwrap_or_default();
+        println!(
+            "token-savings · budget {} · {} packs",
+            summary["budget"], summary["packs"]
+        );
         for r in &rows {
             println!(
                 "  {:>5.1}%  {:>5} of {:>6} tok  {:>2} items  {}",
@@ -96,7 +109,11 @@ pub fn token_savings(
                 r["query"].as_str().unwrap_or("")
             );
         }
-        println!("median saved: {median:.1}% · mean: {mean:.1}%");
+        println!(
+            "median saved: {:.1}% · mean: {:.1}%",
+            summary["median_saved_pct"].as_f64().unwrap_or(0.0),
+            summary["mean_saved_pct"].as_f64().unwrap_or(0.0)
+        );
     }
     Ok(())
 }
@@ -104,8 +121,7 @@ pub fn token_savings(
 /// Replay a scripted edit sequence on a temp copy of the repo and measure
 /// what survives: chunk preservation per edit and hot-prefix byte stability.
 /// The user's working tree is never touched.
-pub fn cache_stability(root: &Path, budget: Option<i64>, json_out: bool) -> Result<()> {
-    let _ = budget; // packs are not built here; reserved for future steps
+pub fn cache_stability_report(root: &Path) -> Result<serde_json::Value> {
     let src = root.canonicalize()?;
     let dir = tempfile::tempdir()?;
     for f in walk::repo_files(&src) {
@@ -167,35 +183,42 @@ pub fn cache_stability(root: &Path, budget: Option<i64>, json_out: bool) -> Resu
         .filter_map(|s| s["preservation_pct"].as_f64())
         .fold(100.0_f64, f64::min);
 
-    let summary = json!({
+    Ok(json!({
         "benchmark": "cache-stability",
         "steps": steps,
         "hot_prefix_stable_steps": format!("{prefix_stable_steps}/{}", steps.len()),
         "min_chunk_preservation_pct": min_preservation,
-    });
+    }))
+}
+
+pub fn cache_stability(root: &Path, budget: Option<i64>, json_out: bool) -> Result<()> {
+    let _ = budget; // packs are not built here; reserved for future steps
+    let summary = cache_stability_report(root)?;
     if json_out {
         println!("{}", serde_json::to_string_pretty(&summary)?);
-    } else {
-        println!("cache-stability · replayed {} edits", steps.len());
-        for s in &steps {
-            println!(
-                "  {:<28} preserved {:>5.1}% ({} staled, {} new) · hot prefix {}",
-                s["step"].as_str().unwrap_or(""),
-                s["preservation_pct"].as_f64().unwrap_or(0.0),
-                s["chunks_staled"],
-                s["chunks_new"],
-                if s["hot_prefix_stable"].as_bool() == Some(true) {
-                    "stable"
-                } else {
-                    "CHANGED"
-                }
-            );
-        }
+        return Ok(());
+    }
+    let steps = summary["steps"].as_array().cloned().unwrap_or_default();
+    println!("cache-stability · replayed {} edits", steps.len());
+    for s in &steps {
         println!(
-            "hot prefix stable in {prefix_stable_steps}/{} steps · min preservation {min_preservation:.1}%",
-            steps.len()
+            "  {:<28} preserved {:>5.1}% ({} staled, {} new) · hot prefix {}",
+            s["step"].as_str().unwrap_or(""),
+            s["preservation_pct"].as_f64().unwrap_or(0.0),
+            s["chunks_staled"],
+            s["chunks_new"],
+            if s["hot_prefix_stable"].as_bool() == Some(true) {
+                "stable"
+            } else {
+                "CHANGED"
+            }
         );
     }
+    println!(
+        "hot prefix stable in {} steps · min preservation {:.1}%",
+        summary["hot_prefix_stable_steps"].as_str().unwrap_or(""),
+        summary["min_chunk_preservation_pct"].as_f64().unwrap_or(0.0)
+    );
     Ok(())
 }
 

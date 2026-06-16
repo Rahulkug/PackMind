@@ -1,6 +1,9 @@
 //! PackMind CLI — the Level-1 adoption surface.
 
 mod bench;
+mod demo;
+mod doctor;
+mod prctx;
 
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
@@ -70,6 +73,9 @@ enum Command {
         /// Omit item contents (ids + explains only)
         #[arg(long)]
         no_content: bool,
+        /// Copy the rendered pack to the clipboard (for pasting into any agent)
+        #[arg(long)]
+        copy: bool,
     },
     /// Like `pack`, with a human explanation of every inclusion
     AskContext {
@@ -93,6 +99,28 @@ enum Command {
     Why { pack_id: String },
     /// Serve PackMind tools over MCP (stdio)
     Mcp,
+    /// One-command interactive demo: index, packs, benchmarks -> HTML file
+    Demo {
+        /// Repo to demo (default: current repo)
+        path: Option<PathBuf>,
+        /// Output file (default: <repo>/packmind-demo.html)
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Open the result in a browser when done
+        #[arg(long)]
+        open: bool,
+    },
+    /// Check the setup: index, freshness, search, tokenizer, config
+    Doctor,
+    /// PR-shaped context: changed symbols, impact, and a suggested review pack
+    PrContext {
+        /// Git revision range (e.g. main..HEAD); default: working tree vs index
+        since: Option<String>,
+        #[arg(long, default_value_t = 8000)]
+        budget: i64,
+        #[arg(long)]
+        json: bool,
+    },
     /// Prompt-cache health: stable prefix size, reuse, pack-order stability
     CacheReport {
         #[arg(long)]
@@ -272,6 +300,7 @@ fn run(cli: Cli) -> Result<()> {
             json,
             render: render_mode,
             no_content,
+            copy,
         } => {
             let store = Store::open_existing(&root)?;
             let config = Config::load(&root)?;
@@ -280,33 +309,35 @@ fn run(cli: Cli) -> Result<()> {
                 &PackRequest {
                     query,
                     token_budget: budget.unwrap_or(config.plan.budget),
-                    include_content: !no_content || render_mode.is_some(),
+                    include_content: !no_content || render_mode.is_some() || copy,
                     dirty_paths: dirty_files(&store)?,
                     mode: mode.unwrap_or_default(),
                     surface: "cli".into(),
                 },
             )?;
-            match render_mode.as_deref() {
-                Some("plain") => println!("{}", render::render_plain(&pack)),
+            let rendered = match render_mode.as_deref() {
+                Some("plain") | None => render::render_plain(&pack),
                 Some("anthropic") => {
-                    println!(
-                        "{}",
-                        serde_json::to_string_pretty(&render::render_anthropic(&pack))?
-                    )
+                    serde_json::to_string_pretty(&render::render_anthropic(&pack))?
                 }
-                Some("openai") => {
-                    println!(
-                        "{}",
-                        serde_json::to_string_pretty(&render::render_openai(&pack))?
-                    )
-                }
+                Some("openai") => serde_json::to_string_pretty(&render::render_openai(&pack))?,
                 Some(other) => {
                     return Err(anyhow!(
                         "unknown render mode '{other}' (plain|anthropic|openai)"
                     ))
                 }
+            };
+            match render_mode.as_deref() {
+                Some(_) => println!("{rendered}"),
                 None if json => println!("{}", serde_json::to_string_pretty(&pack)?),
                 None => print_pack_summary(&pack),
+            }
+            if copy {
+                copy_to_clipboard(&rendered)?;
+                println!(
+                    "\nCopied {}-token context pack to the clipboard — paste it into any agent.",
+                    pack.totals.selected_tokens
+                );
             }
         }
         Command::AskContext {
@@ -357,6 +388,24 @@ fn run(cli: Cli) -> Result<()> {
         Command::Mcp => {
             packmind_mcp::serve_stdio(&root)?;
         }
+        Command::Demo { path, out, open } => {
+            let demo_root = match path {
+                Some(p) => p.canonicalize()?,
+                None => root,
+            };
+            demo::run(&demo_root, out.as_deref(), open)?;
+        }
+        Command::Doctor => {
+            let code = doctor::run(&root)?;
+            std::process::exit(code);
+        }
+        Command::PrContext {
+            since,
+            budget,
+            json,
+        } => {
+            prctx::run(&root, since.as_deref(), budget, json)?;
+        }
         Command::CacheReport { json } => {
             let store = Store::open_existing(&root)?;
             let r = report::cache_report(&store)?;
@@ -387,6 +436,38 @@ fn run(cli: Cli) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Pipe text to the platform clipboard utility. No extra dependency — we
+/// shell out to whatever the OS already provides.
+fn copy_to_clipboard(text: &str) -> Result<()> {
+    use std::io::Write;
+    let candidates: &[(&str, &[&str])] = if cfg!(target_os = "macos") {
+        &[("pbcopy", &[])]
+    } else if cfg!(target_os = "windows") {
+        &[("clip", &[])]
+    } else {
+        // Wayland then X11.
+        &[("wl-copy", &[]), ("xclip", &["-selection", "clipboard"]), ("xsel", &["--clipboard", "--input"])]
+    };
+    for (cmd, args) in candidates {
+        let child = std::process::Command::new(cmd)
+            .args(*args)
+            .stdin(std::process::Stdio::piped())
+            .spawn();
+        if let Ok(mut child) = child {
+            if let Some(stdin) = child.stdin.as_mut() {
+                stdin.write_all(text.as_bytes())?;
+            }
+            if child.wait().map(|s| s.success()).unwrap_or(false) {
+                return Ok(());
+            }
+        }
+    }
+    Err(anyhow!(
+        "no clipboard tool found (tried {}); use --render plain and pipe instead",
+        candidates.iter().map(|(c, _)| *c).collect::<Vec<_>>().join(", ")
+    ))
 }
 
 fn print_cache_report(r: &serde_json::Value) {
@@ -469,11 +550,7 @@ fn print_pack_summary(pack: &packmind_core::pack::ContextPack) {
         .iter()
         .filter(|i| i.item_type == "test" || i.why.reason == "tested_by")
         .count();
-    if test_items == 0 {
-        println!("  test context: none found — consider --mode test");
-    } else {
-        println!("  test context: {test_items} items");
-    }
+    let substituted = pack.items.iter().filter(|i| i.item_type == "signature").count();
     let headroom = pack.token_budget - pack.totals.selected_tokens;
     println!(
         "  budget headroom: {headroom} tok unused of {}",
@@ -481,6 +558,44 @@ fn print_pack_summary(pack: &packmind_core::pack::ContextPack) {
     );
     if pack.token_estimate {
         println!("  token counts are estimates (tokenizer unavailable)");
+    }
+
+    // Sufficiency: does the pack cover the categories an agent usually needs?
+    // Each line is a ✓/⚠ so incompleteness is visible before the agent acts.
+    let has = |pred: &dyn Fn(&packmind_core::pack::PackItem) -> bool| pack.items.iter().any(pred);
+    let direct = has(&|i| (i.item_type == "ast_chunk")
+        && (i.why.reason == "anchor" || i.why.reason == "search_hit"));
+    let callers = has(&|i| i.why.reason == "called_by" || i.why.reason == "calls");
+    let docs = has(&|i| i.item_type == "doc_chunk");
+    let mark = |b: bool| if b { "✓" } else { "⚠" };
+    println!("\nSufficiency:");
+    println!("  {} direct implementation", mark(direct));
+    println!("  {} related tests", mark(test_items > 0));
+    println!("  {} callers / call sites", mark(callers));
+    println!("  {} docs / config context", mark(docs));
+
+    // Pack risk level: a single headline from the warning signals above.
+    let mut risks = Vec::new();
+    if pack.freshness.stale_files > 0 {
+        risks.push(format!("dirty working tree ({} files unindexed)", pack.freshness.stale_files));
+    }
+    if !direct {
+        risks.push("no full implementation chunk selected".into());
+    }
+    if test_items == 0 {
+        risks.push("no test context — consider --mode test".into());
+    }
+    if substituted > 0 {
+        risks.push(format!("budget tight: {substituted} chunks reduced to signatures"));
+    }
+    let level = match risks.len() {
+        0 => "low",
+        1 => "medium",
+        _ => "high",
+    };
+    println!("\nPack risk: {level}");
+    for r in &risks {
+        println!("  - {r}");
     }
 
     println!("\nIncluded:");

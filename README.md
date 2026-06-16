@@ -1,20 +1,48 @@
 # PackMind
 
-PackMind is a local-first context engine for AI coding agents.
+**A context compiler for AI coding agents.** PackMind compiles your repository
+into small, explained, cache-stable context packs under a token budget — so
+agents read the right code, not the whole codebase.
 
-It indexes a repository into an AST-aware graph, then builds small, explained,
-token-budgeted context packs for coding questions. The goal is simple: stop
-making agents rediscover the same repo structure by dumping files into every
-prompt.
+It is local-first and works with Claude Code, Cursor, Cline, Continue, Aider,
+and any custom MCP agent. Instead of dumping whole files into prompts, PackMind
+indexes your repo locally and returns the exact symbols, callers, tests, docs,
+and configs an agent should read — each with a reason it was included.
 
-![PackMind context pack screenshot](docs/assets/pack-screenshot.svg)
+```text
+$ packmind pack "fix currency rounding in payment validation" --mode bugfix --budget 6000
 
-Start with the full walkthrough in [docs/USAGE.md](docs/USAGE.md), or run the
-local playground:
+Selected 18 items, 1195 tokens.  Raw equivalent: ~1440 tokens.  Saved: 17.0%.
+pack 01KV… · mode: bugfix · freshness: fresh · hot set v1
+...
+- payments.py::PaymentError                  [ast_chunk]  (search_hit 0.74)
+    why: query term 'payment'
+- auth.py::require_auth                       [ast_chunk]  (calls 0.39)
+    why: calls edge from handle_payment_request
+- tests/test_payments.py::validator          [test]       (tested_by 0.43)
+    why: tested_by edge from process_payment
+
+Sufficiency:  ✓ direct implementation  ✓ related tests  ✓ callers  ✓ docs/config
+Pack risk: low
+```
+
+> On a six-file example repo the savings are small by design. On 20 real GitHub
+> repositories the same planner saves a **median 92.9%** of context tokens at a
+> 2,000-token budget — [see the verified eval below](#20-repo-github-evaluation).
+
+See the whole thing for yourself in 30 seconds — no Python, no setup:
 
 ```sh
-scripts/playground.sh
+cargo build --release
+target/release/packmind demo --repo examples/small-python-service --open
 ```
+
+That indexes the repo, builds packs across modes and budgets, runs the
+benchmarks, and opens a self-contained interactive HTML page (pack explorer,
+code graph, cache report). Full walkthrough: [docs/USAGE.md](docs/USAGE.md);
+editor/agent setup: [docs/integrations/](docs/integrations/).
+
+![PackMind context pack screenshot](docs/assets/pack-screenshot.svg)
 
 ## The Problem
 
@@ -33,13 +61,14 @@ reason for every included item.
 
 ## What PackMind Does
 
-Current `0.3.0` implementation:
+Current `0.4.0` implementation:
 
 - indexes Python, TypeScript/JavaScript, Java, Markdown, and text files;
 - extracts AST chunks, signatures, docs, imports, calls, inheritance, and test
   relations where supported;
 - stores everything locally in `.packmind/index.db` using SQLite + FTS5;
-- builds context packs with token budgets and per-item explanations;
+- builds context packs with token budgets and per-item explanations, plus a
+  sufficiency check and a pack risk level so incomplete context is visible;
 - biases retrieval per task with `--mode bugfix | refactor | test | security |
   architecture | pr` (bugfix/pr also anchor on files changed since the last
   index);
@@ -47,6 +76,11 @@ Current `0.3.0` implementation:
   `.packmind/config.toml` (written by `init`, every value optional);
 - substitutes signatures when full chunks do not fit;
 - orders selected items deterministically for prompt-cache stability;
+- copies a ready-to-paste pack to the clipboard (`pack --copy`);
+- builds PR-shaped review context (`pr-context`): changed symbols, impact, and
+  a suggested pack;
+- self-diagnoses setup (`doctor`) and renders a one-command interactive demo
+  (`demo`);
 - reports cache health (`cache-report`) and ships two reproducible offline
   benchmarks (`bench token-savings`, `bench cache-stability`);
 - exposes a CLI and a read-only MCP stdio server.
@@ -65,37 +99,51 @@ It does not send code to a cloud service. The index is local to the repo.
 
 Use it today at Level 1 or Level 2.
 
-## Quick Start
+## Install
 
-Build from source:
+Install the CLI with Cargo (Rust toolchain required):
 
 ```sh
-cargo build --release
+cargo install --git https://github.com/Rahulkug/PackMind packmind-cli
 ```
 
-Initialize and index a repo:
+This puts a `packmind` binary on your `PATH`. Or build from source:
 
 ```sh
-target/release/packmind init /path/to/repo
-target/release/packmind --repo /path/to/repo index --force
+git clone https://github.com/Rahulkug/PackMind && cd PackMind
+cargo build --release   # binary at target/release/packmind
+```
+
+A one-line install script and prebuilt binaries are planned; for now Cargo is
+the supported path. The examples below assume `packmind` is on your `PATH` (use
+`target/release/packmind` if you built from source).
+
+## Quick Start
+
+Initialize and index a repo, then confirm the setup:
+
+```sh
+packmind init /path/to/repo
+packmind --repo /path/to/repo index --force
+packmind --repo /path/to/repo doctor
 ```
 
 Check index state:
 
 ```sh
-target/release/packmind --repo /path/to/repo status
+packmind --repo /path/to/repo status
 ```
 
 Search code:
 
 ```sh
-target/release/packmind --repo /path/to/repo search "payment validation"
+packmind --repo /path/to/repo search "payment validation"
 ```
 
 Build a context pack:
 
 ```sh
-target/release/packmind --repo /path/to/repo pack \
+packmind --repo /path/to/repo pack \
   "Explain the main architecture and important data flow" \
   --budget 6000 \
   --json
@@ -104,16 +152,27 @@ target/release/packmind --repo /path/to/repo pack \
 Build a task-biased pack (modes change scoring priors, not the contract):
 
 ```sh
-target/release/packmind --repo /path/to/repo pack \
-  "fix the currency rounding bug" --mode bugfix
-target/release/packmind --repo /path/to/repo pack \
-  "review token handling" --mode security
+packmind --repo /path/to/repo pack "fix the currency rounding bug" --mode bugfix
+packmind --repo /path/to/repo pack "review token handling" --mode security
+```
+
+Copy a ready-to-paste pack straight to the clipboard:
+
+```sh
+packmind --repo /path/to/repo pack "fix login bug" --mode bugfix --copy
+# -> Copied 5.8k-token context pack to the clipboard.
+```
+
+Get PR-shaped review context (changed symbols, impact, suggested pack):
+
+```sh
+packmind --repo /path/to/repo pr-context main..HEAD --budget 8000
 ```
 
 Render for a prompt:
 
 ```sh
-target/release/packmind --repo /path/to/repo pack \
+packmind --repo /path/to/repo pack \
   "Refactor PaymentValidator to use FxRateService" \
   --budget 12000 \
   --render plain
@@ -122,27 +181,27 @@ target/release/packmind --repo /path/to/repo pack \
 Check prompt-cache health and run the offline benchmarks:
 
 ```sh
-target/release/packmind --repo /path/to/repo cache-report
-target/release/packmind --repo /path/to/repo bench token-savings
-target/release/packmind --repo /path/to/repo bench cache-stability
+packmind --repo /path/to/repo cache-report
+packmind --repo /path/to/repo bench token-savings
+packmind --repo /path/to/repo bench cache-stability
 ```
 
 For screenshots, MCP setup, playground commands, and common workflows, see
-[docs/USAGE.md](docs/USAGE.md).
+[docs/USAGE.md](docs/USAGE.md). For editor/agent setup, see
+[docs/integrations/](docs/integrations/).
 
 ## Interactive Demo
 
-One command runs the full pipeline end to end — init, index, ten context packs
-across modes and budgets, cache-report, both benchmarks — and renders
-everything into a single self-contained HTML file:
+One command runs the full pipeline end to end — index, packs across modes and
+budgets, cache-report, both benchmarks — and renders a single self-contained
+HTML file. No Python, no server, no network; the template is embedded in the
+binary:
 
 ```sh
-cargo build --release
-python3 demo/generate.py
-open demo/packmind-demo.html
+packmind demo --repo /path/to/repo --open
 ```
 
-The page works offline (no server, no network) and shows three views:
+The page shows three views:
 
 - **Pack explorer** — switch between real packs; every item is clickable and
   shows its mandatory `why`, its code, and its token cost, next to a savings
@@ -153,15 +212,15 @@ The page works offline (no server, no network) and shows three views:
   and the edit-replay steps proving the cacheable prefix survives normal
   editing.
 
-`demo/generate.py --repo /path/to/any/indexed/repo` regenerates it for your
-own repository.
+(Maintainers can regenerate the checked-in `demo/packmind-demo.html` with the
+richer example matrix via `python3 demo/generate.py`.)
 
 ## MCP Usage
 
 Run the MCP server over stdio:
 
 ```sh
-target/release/packmind --repo /path/to/repo mcp
+packmind --repo /path/to/repo mcp
 ```
 
 Example MCP client config shape:
@@ -206,25 +265,23 @@ This lets an agent answer repo questions without reading many files one by one.
 
 ## Proof It Works
 
-### End-to-End Run (v0.3.0, bundled example)
+### End-to-End Run (v0.4.0, bundled example)
 
 Every release is verified end to end against
 `examples/small-python-service`: init → index → packs in every mode →
-cache-report → both benchmarks (this is exactly what `demo/generate.py`
-automates). Numbers from the current run:
+cache-report → both benchmarks (this is exactly what `packmind demo` runs).
+Numbers from a clean run:
 
 | Check | Result |
 | --- | --- |
-| Workspace tests (`cargo test --workspace`) | 18 / 18 pass |
-| Context packs recorded (mode/budget matrix, benchmarks, manual runs) | 40, zero failures |
+| Workspace tests (`cargo test --workspace`) | 22 / 22 pass |
 | Token savings (24 bench packs @ 2,000 budget) | 26.2% median, 27.2% mean |
-| Cache stability score (40 recorded packs vs hot-set prefix) | 1.0 — 40/40 prefix-order consistent |
 | Edit replay (`bench cache-stability`, temp copy) | hot prefix byte-identical in 3/3 edits, 100% chunk preservation |
 | Stable prefix | 2,449 bytes, ~304 reusable tokens, hot set v1 |
 
-The savings percentage is small here by design — the example repo is six tiny
-files, so there is little to leave out. The 20-repo eval below shows what the
-same planner does at real-repo scale (median 92.9% at a 2,000-token budget).
+(The savings figures look modest only because the example is six tiny files —
+there is little to leave out. See the 20-repo numbers below for real scale:
+median 92.9% saved at a 2,000-token budget.)
 
 The test suite pins the contracts, not just the happy path: anchors named in
 the query always ship as full chunks when budget allows; signature nodes can
@@ -247,8 +304,10 @@ Clean run:
 - Machine-readable provenance: `eval/results/packmind_20_20260612T174255Z/provenance.json`
 
 That run indexed 20 real public GitHub repositories and generated 180 context
-packs: 20 repos x 3 query profiles x 3 token budgets, using the v0.3.0
-binary (modes, config, threshold, and the signature-resolution fix included).
+packs: 20 repos x 3 query profiles x 3 token budgets. It was produced by the
+v0.3.0 binary; the v0.4.0 release changes only added commands (demo, doctor,
+pr-context, --copy, scorecard) and leaves the indexer and planner byte-for-byte
+identical, so these savings numbers carry forward unchanged.
 
 Summary from the run:
 
@@ -354,7 +413,7 @@ scripts/eval_github_repos.py --repo-limit 1
 
 ## Development
 
-Run tests (18 across core, indexer, and the CLI integration suite):
+Run tests (22 across core, indexer, and the CLI integration suite):
 
 ```sh
 cargo test --workspace
@@ -365,8 +424,8 @@ Useful commands:
 ```sh
 cargo build --release
 target/release/packmind --help
-target/release/packmind --repo examples/small-python-service status
-python3 demo/generate.py        # end-to-end run -> demo/packmind-demo.html
+target/release/packmind --repo examples/small-python-service doctor
+target/release/packmind --repo examples/small-python-service demo --open
 ```
 
 The small example repo lives in `examples/small-python-service`.
