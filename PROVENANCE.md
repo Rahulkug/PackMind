@@ -5,12 +5,16 @@ This file records the public proof trail for published PackMind releases.
 ## Public Repository
 
 - Repository: `https://github.com/Rahulkug/PackMind`
-- Current release tag: `v0.3.0`
-- Current release URL: `https://github.com/Rahulkug/PackMind/releases/tag/v0.3.0`
-- Previous releases: `v0.2.1`, `v0.2.0` (tags in this repository; the v0.2.1
-  proof trail below is preserved unchanged)
+- Current release tag: `v0.4.0`
+- Current release URL: `https://github.com/Rahulkug/PackMind/releases/tag/v0.4.0`
+- Previous releases: `v0.3.0`, `v0.2.1`, `v0.2.0` (tags in this repository)
 - License: Apache-2.0, see `LICENSE`
 - Notice: see `NOTICE`
+
+v0.4.0 adds user-facing commands only (demo, doctor, pr-context, pack --copy,
+sufficiency/risk scorecard). It leaves the indexer and planner byte-for-byte
+identical to v0.3.0, so the evaluation proof below — produced by the v0.3.0
+binary — applies unchanged to v0.4.0.
 
 ## What Is Licensed Here
 
